@@ -11,7 +11,7 @@
 
 **KillSwitch is a concrete Agentic Commerce demo:** an AI agent discovers a merchant, takes a quote, and pays *for you* — but only inside a **Session Key** (budget · whitelist · deadline). The agent **proposes**; `SessionPolicy` **Guards**; **`PaymentDenied` is a successful security outcome**; you can **Freeze** or **Close + refund**. Do not trust the model.
 
-Why this framing for judges: Handbook “智能体商业” is the story; Wallet / Session Key / Guard are the mechanism. A meeting-coffee / API-billing scene is easier to score than “generic agent wallet.”
+Why this framing for judges: Handbook “Agentic Commerce” is the story; Wallet / Session Key / Guard are the mechanism. A meeting-coffee / API-billing scene is easier to score than “generic agent wallet.”
 
 ### Declared Function
 
