@@ -31,6 +31,14 @@ RUN_AGENT_BOUNDARY=1 ./demos/run-all.sh   # includes LLM→contract deny paths
 # or: node demos/agent-boundary.mjs all
 ```
 
+## Agentic Commerce path (recommended story)
+
+1. Grant session (budget + allowlist includes Coffee Lane / API merchant)
+2. In **情景** funnel: pick **Coffee Lane** → see quote → **Checkout 代付**
+3. Read **CommercePaymentCredential** (status `paid` + tx) — merchant-verifiable
+4. Click **付给 Shadow Shop** → `denied` credential (Guard success)
+5. Freeze or Close/退款
+
 ## 90-second click path (Handbook four-contrast)
 
 | # | Action | Where | What you should see |

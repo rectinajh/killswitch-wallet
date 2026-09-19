@@ -87,7 +87,8 @@ jobs:
           test -f QUICKSTART.md || (echo "QUICKSTART.md missing" && exit 1)
           test -f CONTRIBUTING.md || (echo "CONTRIBUTING.md missing" && exit 1)
           test -f LICENSE || (echo "LICENSE missing" && exit 1)
-          test -f docs/AA_SESSION_KEY.md || (echo "AA_SESSION_KEY.md missing" && exit 1)
+          test -f docs/AA_SESSION_KEY.md
+          test -f docs/AGENTIC_COMMERCE.md || (echo "AA_SESSION_KEY.md missing" && exit 1)
           test -f contracts/src/interfaces/ISessionCapability.sol || (echo "ISessionCapability missing" && exit 1)
           test -x scripts/check-furiosa-path.sh || (echo "check-furiosa-path.sh missing" && exit 1)
           echo "✓ All documentation files present"

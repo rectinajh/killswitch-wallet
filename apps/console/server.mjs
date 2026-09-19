@@ -14,6 +14,32 @@ loadEnv({ path: path.join(root, '.env') });
 const PORT = Number(process.env.CONSOLE_PORT || 8787);
 const abi = JSON.parse(fs.readFileSync(path.join(__dirname, 'abi.json'), 'utf8'));
 
+/** Demo Agentic Commerce catalog — addresses must match Anvil allowlist merchants */
+const COMMERCE_CATALOG = [
+  {
+    id: 'coffee-lane',
+    name: 'Coffee Lane (白名单咖啡店)',
+    category: 'food',
+    merchant: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+    sku: 'LATTE',
+    quoteEth: '0.02',
+    description: 'Iced latte for meeting break',
+    service: 'In-store / pickup',
+  },
+  {
+    id: 'api-meter',
+    name: 'Metered API Billing',
+    category: 'saas',
+    merchant: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+    sku: 'API-1K',
+    quoteEth: '0.015',
+    description: 'Pay 1k inference credits invoice',
+    service: 'Machine-to-machine settlement',
+  },
+];
+
+
+
 function refreshEnv() {
   loadEnv({ path: path.join(root, '.env'), override: true });
 }
@@ -179,6 +205,80 @@ const server = http.createServer(async (req, res) => {
         securityThesis: 'Even if the LLM is induced to overspend or leave the allowlist, Guard emits PaymentDenied — deny is a success outcome.',
         lastDenied: denied.length ? denied[denied.length - 1] : null,
         lastExecuted: executed.length ? executed[executed.length - 1] : null,
+      });
+    }
+
+
+    if (req.method === 'GET' && url.pathname === '/api/commerce/catalog') {
+      return send(res, 200, {
+        thesis: 'Agentic Commerce = discover whitelisted merchant → quote → agent propose pay → verifiable on-chain receipt',
+        catalog: COMMERCE_CATALOG,
+        offCatalogExample: {
+          id: 'shadow-shop',
+          name: 'Shadow Shop (NOT allowlisted)',
+          merchant: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC',
+          quoteEth: '0.01',
+          description: 'Should be PaymentDenied — Guard success',
+        },
+      });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/commerce/checkout') {
+      const body = await readBody(req);
+      const item = COMMERCE_CATALOG.find((c) => c.id === body.skuId) || null;
+      if (!item && !body.forceOffCatalog) {
+        return send(res, 400, { error: 'Unknown skuId — pick from /api/commerce/catalog' });
+      }
+      const sessionId = Number(body.sessionId || 0);
+      const off = Boolean(body.forceOffCatalog);
+      const merchant = off
+        ? '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC'
+        : (item?.merchant || body.merchant);
+      const amountEth = off ? '0.01' : String(body.amountEth || item.quoteEth);
+      const intent = off
+        ? 'Agentic Commerce adversarial: pay Shadow Shop (not allowlisted)'
+        : `Agentic Commerce checkout: ${item.name} / ${item.sku} — ${item.description}`;
+      const { paymentProposer } = await initializeAgent();
+      const result = await paymentProposer.proposePayment(sessionId, intent, {
+        forceMerchant: merchant,
+        forceAmountEth: amountEth,
+        allowOffAllowlist: off,
+        skipLlm: true,
+      });
+      const events = result.events || [];
+      const executed = events.find((e) => e.type === 'executed');
+      const denied = events.find((e) => e.type === 'denied');
+      const credential = executed
+        ? {
+            type: 'CommercePaymentCredential',
+            status: 'paid',
+            skuId: item?.id || 'off-catalog',
+            merchant,
+            amountEth,
+            description: item?.description || intent,
+            sessionId,
+            transactionHash: result.transactionHash,
+            chain: 'anvil-local',
+            verify: 'Anyone can verify PaymentExecuted on SessionPolicy for this tx — merchant settlement proof',
+          }
+        : denied
+          ? {
+              type: 'CommercePaymentCredential',
+              status: 'denied',
+              skuId: item?.id || 'off-catalog',
+              merchant,
+              amountEth,
+              reason: denied.reason,
+              sessionId,
+              transactionHash: result.transactionHash,
+              note: 'Deny is a successful Guard outcome — no merchant settlement',
+            }
+          : { type: 'CommercePaymentCredential', status: 'unknown', result };
+      return send(res, 200, {
+        intent,
+        item: item || { id: 'off-catalog', merchant },
+        result,
+        credential,
       });
     }
 

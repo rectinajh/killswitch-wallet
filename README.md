@@ -54,6 +54,8 @@ KillSwitch maps directly onto the [AI × Web3 School Handbook](https://aiweb3.sc
 3. Non-allowlisted merchant → Guard intercept
 4. User revokes session → Agent loses capability
 
+**Agentic Commerce:** [`docs/AGENTIC_COMMERCE.md`](docs/AGENTIC_COMMERCE.md) — discover → quote → checkout → `CommercePaymentCredential`.
+
 **Production evolution:** [`docs/AA_SESSION_KEY.md`](docs/AA_SESSION_KEY.md) maps `ISessionCapability` → ERC-4337 Session Key. Check official LLM: `./scripts/check-furiosa-path.sh`.
 
 See also: [Agent Wallet (zh)](https://aiweb3.school/zh/handbook/bridge/agent-wallet/) · [Wallet / Permission track](https://aiweb3.school/en/handbook/tracks/wallet-permission/)

@@ -905,6 +905,52 @@
       color: var(--text);
     }
     .tl-step .tn { color: var(--cyan); font-weight: 700; display: block; margin-bottom: 4px; }
+
+    .funnel {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 12px;
+      margin-top: 10px;
+    }
+    @media (max-width: 960px) { .funnel { grid-template-columns: 1fr; } }
+    .shop-list { display: flex; flex-direction: column; gap: 8px; }
+    .shop {
+      text-align: left;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(0,246,255,0.2);
+      background: rgba(0,0,0,0.35);
+      cursor: pointer;
+      width: 100%;
+    }
+    .shop.active {
+      border-color: var(--ok);
+      box-shadow: 0 0 14px rgba(57,255,182,0.2);
+    }
+    .shop .sn { color: var(--cyan); font-weight: 700; font-size: 13px; }
+    .shop .sm { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 4px; }
+    .shop .sq { margin-top: 6px; color: var(--text); font-size: 12px; }
+    .cred {
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(57,255,182,0.35);
+      background: rgba(0,20,16,0.5);
+      font-family: var(--mono);
+      font-size: 11px;
+      color: #d7e6f7;
+      white-space: pre-wrap;
+      word-break: break-all;
+      max-height: 200px;
+      overflow: auto;
+    }
+    .cred.denied {
+      border-color: rgba(255,61,110,0.45);
+      background: rgba(30,8,12,0.5);
+    }
+    .funnel-steps {
+      display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px;
+    }
   </style>
 </head>
 <body>
@@ -972,11 +1018,33 @@
     <p class="flow">
       <strong>今天的戏：</strong>
       ① 授权 Session Key →
-      ② Agent 代付咖啡成功（Executed）→
-      ③ 诱导超额 / 陌生商家 → PaymentDenied →
-      ④ 你 Freeze 停权，或 Close 退款收工。
-      这就是 Furiosa「Agent 花钱可控」+ Handbook「Agentic Commerce」的最小完整故事：发现白名单商家 → 代付 → 链上凭证；越权必拒。
+      ② 发现白名单商家并确认报价 →
+      ③ Agent checkout 代付（Executed + 可核验收据）→
+      ④ 陌生商家 / 超额 → Denied →
+      ⑤ Freeze 或 Close 退款。
+      完整 Agentic Commerce：发现 → 报价 → 代付 → 凭证；不是「AI 随便转了一笔账」。
     </p>
+    <div class="funnel-steps" id="funnelSteps">
+      <span class="pill cyan" id="fs1">1 Discover</span>
+      <span class="pill cyan" id="fs2">2 Quote</span>
+      <span class="pill cyan" id="fs3">3 Pay</span>
+      <span class="pill cyan" id="fs4">4 Credential</span>
+    </div>
+    <div class="funnel">
+      <div>
+        <label>发现商家（目录 · 仅白名单可成交）</label>
+        <div class="shop-list" id="shopList">加载目录…</div>
+        <div class="actions">
+          <button type="button" class="ok-btn" id="btnCheckout">Checkout 代付（当前报价）</button>
+          <button type="button" class="danger" id="btnCheckoutShadow">付给 Shadow Shop（应 Denied）</button>
+        </div>
+      </div>
+      <div>
+        <label>报价 / 结算凭证</label>
+        <pre class="ctx-box" id="quoteBox">点选左侧商家查看报价…</pre>
+        <div class="cred" id="credBox">支付成功后这里生成 CommercePaymentCredential（商家可凭 tx 对账）</div>
+      </div>
+    </div>
   </section>
 
   <section class="bridge-lab" id="bridgeLab">
@@ -1029,7 +1097,7 @@
 
     <div class="bridge-panel" id="tab-pay">
       <h4>Machine Payment · 小额代付结算</h4>
-      <p class="desc">Furiosa 题面：Agent 代付白名单商家。当前 session 结算视图随 Policy 刷新。</p>
+      <p class="desc">与上方 Agentic Commerce 漏斗同源：目录报价 → checkout → 凭证。这里看 session 余额与白名单店。</p>
       <div class="metrics" id="payMetrics">
         <div class="metric"><div class="k">可花额度</div><div class="v" id="payBudget">—</div></div>
         <div class="metric"><div class="k">已代付</div><div class="v" id="paySpent">—</div></div>
@@ -1277,6 +1345,137 @@
       } catch (e) {
         box.textContent = e.message;
       }
+    }
+
+
+    // --- Agentic Commerce funnel ---
+    let commerceCatalog = [];
+    let selectedSku = null;
+
+    function setFunnelStage(n) {
+      for (let i = 1; i <= 4; i++) {
+        const el = $('fs' + i);
+        if (!el) continue;
+        el.className = 'pill ' + (i <= n ? 'ok' : 'cyan');
+      }
+    }
+
+    function renderShops() {
+      const box = $('shopList');
+      if (!box) return;
+      box.innerHTML = commerceCatalog.map(c => `
+        <button type="button" class="shop ${selectedSku?.id === c.id ? 'active' : ''}" data-id="${c.id}">
+          <div class="sn">${c.name}</div>
+          <div class="sm">${c.merchant.slice(0,10)}… · ${c.category} · ${c.sku}</div>
+          <div class="sq">报价 ${c.quoteEth} ETH — ${c.description}</div>
+        </button>`).join('');
+      box.querySelectorAll('.shop').forEach(btn => {
+        btn.onclick = () => {
+          selectedSku = commerceCatalog.find(c => c.id === btn.dataset.id);
+          renderShops();
+          renderQuote();
+          setFunnelStage(2);
+          if (selectedSku) {
+            $('intent').value = `Agentic Commerce checkout: ${selectedSku.name} / ${selectedSku.sku} — ${selectedSku.description}`;
+          }
+        };
+      });
+    }
+
+    function renderQuote() {
+      const box = $('quoteBox');
+      if (!box) return;
+      if (!selectedSku) {
+        box.textContent = '点选左侧商家查看报价…';
+        return;
+      }
+      box.textContent = JSON.stringify({
+        stage: 'quote_agreed_for_demo',
+        skuId: selectedSku.id,
+        name: selectedSku.name,
+        merchant: selectedSku.merchant,
+        quoteEth: selectedSku.quoteEth,
+        description: selectedSku.description,
+        service: selectedSku.service,
+        next: 'Grant session including this merchant, then Checkout',
+      }, null, 2);
+    }
+
+    async function loadCommerceCatalog() {
+      const data = await api('/api/commerce/catalog');
+      commerceCatalog = data.catalog || [];
+      window.__offCatalog = data.offCatalogExample;
+      renderShops();
+      setFunnelStage(1);
+      return data;
+    }
+
+    async function runCheckout({ offCatalog = false } = {}) {
+      if (!offCatalog && !selectedSku) {
+        toast('先选商家', '从目录点选一个白名单报价');
+        return;
+      }
+      setWorkflowLit(offCatalog ? 'guard' : 'auto');
+      setFunnelStage(3);
+      const body = {
+        sessionId: sid(),
+        skuId: offCatalog ? undefined : selectedSku.id,
+        forceOffCatalog: offCatalog,
+      };
+      const data = await api('/api/commerce/checkout', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
+      $('result').textContent = JSON.stringify(data, null, 2);
+      if (typeof renderDualEvidence === 'function') {
+        renderDualEvidence({ ...data.result, proposal: data.result?.proposal });
+      }
+      const cred = data.credential || {};
+      const credEl = $('credBox');
+      if (credEl) {
+        credEl.className = 'cred' + (cred.status === 'denied' ? ' denied' : '');
+        credEl.textContent = JSON.stringify(cred, null, 2);
+      }
+      setFunnelStage(4);
+      if (cred.status === 'paid') {
+        markTimeline(2);
+        setMeaning('商家结算凭证已生成 — 任何人可用 PaymentExecuted + tx 核对代付是否真实。', false);
+        toast('Checkout paid', cred.transactionHash || 'ok', true);
+      } else if (cred.status === 'denied') {
+        markTimeline(3);
+        setMeaning('Shadow Shop / 越权被拒 — Agentic Commerce 的安全边界：未授权商家不能结算。', true);
+        toast('Checkout denied (success)', cred.reason || 'denied', true);
+      }
+      await refreshPolicy();
+      await loadEvents(true);
+      await refreshSecurity().catch(() => {});
+      return data;
+    }
+
+    if ($('btnCheckout')) {
+      $('btnCheckout').onclick = async () => {
+        try {
+          $('btnCheckout').disabled = true;
+          await runCheckout({ offCatalog: false });
+        } catch (e) {
+          toast('Checkout failed', e.message);
+          $('result').textContent = e.message;
+        } finally {
+          $('btnCheckout').disabled = false;
+        }
+      };
+    }
+    if ($('btnCheckoutShadow')) {
+      $('btnCheckoutShadow').onclick = async () => {
+        try {
+          $('btnCheckoutShadow').disabled = true;
+          await runCheckout({ offCatalog: true });
+        } catch (e) {
+          toast('Shadow checkout failed', e.message);
+        } finally {
+          $('btnCheckoutShadow').disabled = false;
+        }
+      };
     }
 
     // --- Bridge Lab ---
@@ -1600,6 +1799,7 @@
         await loadEvents(true);
         await refreshSecurity().catch(() => {});
         await refreshProduction().catch(() => {});
+        await loadCommerceCatalog().catch(() => {});
         await sleep(800);
 
         // 3 Guard: over-budget deny (success)
