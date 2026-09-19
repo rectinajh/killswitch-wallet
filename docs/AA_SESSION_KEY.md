@@ -1,6 +1,6 @@
 # From SessionPolicy → ERC-4337 Session Key
 
-KillSwitch’s Furiosa demo proves the **capability rules** on a simple escrow contract.
+KillSwitch proves the **capability rules** on a simple escrow-style `SessionPolicy` contract.
 This document is the **production evolution** aligned with AI × Web3 Handbook
 (Account Abstraction · Agent Wallet · Session Key).
 
@@ -36,7 +36,7 @@ AA splits validation (session module) from execution (account), but the **judge 
 2. Real LLM propose path already hits on-chain Guard
 3. AA wiring needs EntryPoint, paymaster, and a Smart Account factory — orthogonal to proving spend control
 
-## Next engineering milestones (post-hackathon)
+## Next engineering milestones
 
 1. Implement `ISessionCapability` as a Kernel / Safe / Rhinestone session module
 2. Agent submits UserOps instead of EOA `proposeOrPay`

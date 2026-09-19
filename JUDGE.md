@@ -3,15 +3,14 @@
 
 # KillSwitch Wallet — Judge Path (≈90 seconds)
 
-**Furiosa Challenge B / GWDC 2026 Korea**  
 **Core idea:** **Agentic Commerce（智能体商业）** — agent discovers, quotes, and pays under a Session Key; contract Guards; user keeps Freeze/Close.  
-**Handbook:** [AI × Web3 — Wallet / Permission · Agent Wallet](https://aiweb3.school/zh/handbook/) · scenario = 智能体商业
+**Handbook (optional vocabulary):** [AI × Web3 — Wallet / Permission · Agent Wallet](https://aiweb3.school/zh/handbook/)
 
-## Why Agentic Commerce (scoring)
+## Why Agentic Commerce
 
-Judges score a **concrete loop** faster than a generic “agent wallet”:
+A **concrete loop** lands clearer than a generic “agent wallet”:
 
-| Score lens | What KillSwitch shows |
+| Lens | What KillSwitch shows |
 |------------|------------------------|
 | Problem clarity | Meeting / offline → agent should pay coffee or API bills, not the whole vault |
 | Mechanism | Session Key = budget + allowlist + deadline (not master key) |
@@ -78,7 +77,7 @@ Narrative strip on the console maps: **Session Key · Policy · Guard · HITL** 
 
 ## LLM note
 
-- **Furiosa official path:** Kiln `gpt-oss-120b` (`LLM_PROVIDER=kiln`)
+- **Kiln path (optional):** `gpt-oss-120b` (`LLM_PROVIDER=kiln`)
 - **Local build/demo:** may use Kimi (`LLM_PROVIDER=kimi`) — same propose→guard flow
 - Never commit `.env` / API keys
 
@@ -109,7 +108,7 @@ Open the **Bridge Lab** tabs under the scenario strip:
 | AI Privacy | Include/exclude chips + same context preview |
 | Production | Kiln official-path flags + AA Session Key rule map |
 
-## Pass criteria for judges
+## Pass criteria (demo readiness)
 
 1. Can restate **Agentic Commerce loop** in one sentence (discover → pay under session → Guard)  
 2. Can explain Session Key ≠ master key  

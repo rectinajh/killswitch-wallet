@@ -1,6 +1,6 @@
 # KillSwitch Console
 
-Cyber/ops local UI for Furiosa B: grant budget, propose via agent, force boundary denies, freeze, and watch on-chain receipts.
+Cyber/ops console for Agentic Commerce: grant budget, agent checkout, force boundary denies, freeze, and watch on-chain receipts.
 
 ## Run
 
@@ -36,4 +36,4 @@ Budget check uses **amount + 2% fee** (`(amount * 2) / 100` in `SessionPolicy.so
 | POST | `/api/propose` | Optional `forceAmountEth`, `forceMerchant`, `allowOffAllowlist` |
 | POST | `/api/demo/boundary` | `{ case: "budget" \| "merchant" }` |
 
-Uses `.env` (`RPC_URL`, `PRIVATE_KEY`, `CONTRACT_ADDRESS`). Furiosa official LLM = Kiln `gpt-oss-120b`; local demos may use `LLM_PROVIDER=kimi`.
+Uses `.env` (`RPC_URL`, `PRIVATE_KEY`, `CONTRACT_ADDRESS`). Optional Kiln `gpt-oss-120b` (`LLM_PROVIDER=kiln`); local demos often use `LLM_PROVIDER=kimi`.

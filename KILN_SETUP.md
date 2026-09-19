@@ -1,6 +1,6 @@
 # Kiln API Setup Guide
 
-> **Furiosa Challenge B official path** = Kiln API with model **`gpt-oss-120b`** (`LLM_PROVIDER=kiln`).
+> **Optional Kiln path** = Kiln API with model **`gpt-oss-120b`** (`LLM_PROVIDER=kiln`). Originally aligned with Furiosa-style NPU inference; not required to use KillSwitch.
 >
 > **Local build/demo** may use **`LLM_PROVIDER=kimi`** (Moonshot) instead — see `.env.example`.
 > Never put real API keys in git commits.
@@ -10,7 +10,7 @@ This guide explains how to obtain and configure a Kiln API key for the gpt-oss-1
 
 ## Why Kiln API?
 
-Furiosa Challenge B emphasizes NPU-based AI inference. Kiln API provides:
+Kiln-style NPU inference is one LLM option. The API provides:
 
 - **NPU Hardware**: Optimized for Korean semiconductor technology
 - **gpt-oss-120b Model**: 120B parameter open-source model
@@ -29,9 +29,9 @@ Furiosa Challenge B emphasizes NPU-based AI inference. Kiln API provides:
 5. **Generate**: Create new API key for "KillSwitch Wallet"
 6. **Copy**: Save the key securely (shown only once)
 
-### Option 2: GWDC 2026 Challenge Credits
+### Option 2: Provider credits
 
-If participating in Furiosa Challenge B:
+If your LLM provider issues credits:
 
 1. **Check Challenge Portal**: https://gwdc2026.kr/furiosa-b
 2. **Request Credits**: Use challenge registration email
@@ -327,4 +327,4 @@ KILN_API_KEY=local-key
 
 ---
 
-**Note**: Kiln API URLs and setup process are illustrative for this hackathon prototype. Actual API provider and endpoints may vary based on Furiosa Challenge B specifications.
+**Note**: Kiln API URLs and setup process are illustrative. Actual endpoints depend on your provider.

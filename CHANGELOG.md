@@ -109,6 +109,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-**Challenge**: Furiosa Challenge B (GWDC 2026 Korea)  
+**Origin note**: Started during Furiosa Challenge B / GWDC 2026 Korea; project is general-purpose Agentic Commerce  
 **License**: MIT  
 **Repository**: https://github.com/rectinajh/killswitch-wallet

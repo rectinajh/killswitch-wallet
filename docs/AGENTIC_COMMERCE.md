@@ -8,16 +8,16 @@ Handbook **智能体商业 (Agentic Commerce)** = an Agent **discovers** a servi
 
 **KillSwitch Wallet makes Agentic Commerce safe enough to ship:** the model may checkout; the contract decides; denial is recorded success; the user can Freeze or Close+refund.
 
-## Why this helps judging (Furiosa B)
+## Why this framing
 
-| Without Agentic Commerce framing | With it |
+| Generic agent-wallet pitch | Agentic Commerce pitch |
 |----------------------------------|---------|
-| “We built a session policy contract” | “Agent buys coffee / pays API under a grant; Shadow Shop is denied with proof” |
+| “We built a session policy contract” | “Agent buys coffee / pays an API bill under a grant; Shadow Shop is denied with proof” |
 | Abstract Session Key talk | Concrete catalog → checkout → credential |
 | Deny looks like failure | Deny = Guard success in a commerce abuse case |
 | Hard to remember after 90s | Story sticks: whitelist shop vs shadow shop |
 
-Wallet & Permission remains the **Handbook track**; Agentic Commerce is the **scene that proves the track**.
+Wallet / Session Key / Guard are the **mechanism**; Agentic Commerce is the **product scene**.
 
 ## Loop (what judges should see)
 
@@ -36,7 +36,7 @@ Discover (catalog / allowlist shop)
 | Layer | KillSwitch demo |
 |-------|-----------------|
 | Discovery | `/api/commerce/catalog` named merchants (coffee / API billing) |
-| Negotiation | Fixed quote per SKU (hackathon-simple; real world = RFQ) |
+| Negotiation | Fixed quote per SKU (demo-simple; production = RFQ) |
 | Payment | Session-bound propose; fee-aware budget (`amount + 2%`) |
 | Settlement proof | `CommercePaymentCredential` from `PaymentExecuted` |
 | Dispute / abuse | Off-catalog / Shadow Shop → `PaymentDenied` |
@@ -51,6 +51,6 @@ Discover (catalog / allowlist shop)
 
 Scripts: [`JUDGE.md`](../JUDGE.md) · [`DEMO_SCRIPT.md`](../DEMO_SCRIPT.md)
 
-## Not required for Furiosa demo
+## Not required for the core demo
 
 Full ERC-4337 paymasters, open marketplace search, or mainnet — those extend the **same** credential + Guard story ([`AA_SESSION_KEY.md`](AA_SESSION_KEY.md)).

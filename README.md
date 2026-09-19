@@ -5,13 +5,13 @@
 [![Solidity](https://img.shields.io/badge/Solidity-0.8.24-blue.svg)](https://soliditylang.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.4-blue.svg)](https://www.typescriptlang.org/)
 
-**Furiosa Challenge B (GWDC 2026 Korea)** — **Agentic Commerce** with on-chain spend controls (cypherpunk)
+**Agentic Commerce** with on-chain spend controls — agent discovers, quotes, and pays under a Session Key; the contract Guards; deny is recorded success (cypherpunk)
 
 ## Core thesis: Agentic Commerce
 
 **KillSwitch is a concrete Agentic Commerce demo:** an AI agent discovers a merchant, takes a quote, and pays *for you* — but only inside a **Session Key** (budget · whitelist · deadline). The agent **proposes**; `SessionPolicy` **Guards**; **`PaymentDenied` is a successful security outcome**; you can **Freeze** or **Close + refund**. Do not trust the model.
 
-Why this framing for judges: Handbook “Agentic Commerce” is the story; Wallet / Session Key / Guard are the mechanism. A meeting-coffee / API-billing scene is easier to score than “generic agent wallet.”
+Product framing: Handbook-style **Agentic Commerce** is the story; Wallet / Session Key / Guard are the mechanism. Meeting-coffee / API-billing beats a generic “agent wallet” pitch.
 
 ### Declared Function
 
@@ -52,7 +52,7 @@ KillSwitch is built as an **Agentic Commerce** scenario on the [AI × Web3 Schoo
 
 **Console Bridge Lab:** tabs for Chain-aware Context (live LLM prompt preview), Tool Use matrix, Workflow zones, Machine Payment timeline, Verifiable AI match, Security deny scoreboard, Sovereignty Freeze vs Close, Privacy include/exclude — all bound to the active session.
 
-**Frontier track tags (for pitch):** **Agentic Commerce (core scenario)** · Wallet & Permission (mechanism) · AI Security (Guard / deny = success).
+**Positioning:** **Agentic Commerce (core scenario)** · Wallet & Permission (mechanism) · AI Security (Guard / deny = success).
 
 **Canonical Handbook demo contrast (already implemented):**
 1. In-limit checkout (Coffee Lane) → `PaymentExecuted` + paid credential
@@ -62,7 +62,7 @@ KillSwitch is built as an **Agentic Commerce** scenario on the [AI × Web3 Schoo
 
 **Deep dive:** [`docs/AGENTIC_COMMERCE.md`](docs/AGENTIC_COMMERCE.md).
 
-**Production evolution:** [`docs/AA_SESSION_KEY.md`](docs/AA_SESSION_KEY.md) maps `ISessionCapability` → ERC-4337 Session Key. Check official LLM: `./scripts/check-furiosa-path.sh`.
+**Production evolution:** [`docs/AA_SESSION_KEY.md`](docs/AA_SESSION_KEY.md) maps `ISessionCapability` → ERC-4337 Session Key. Check LLM path readiness: `./scripts/check-furiosa-path.sh`.
 
 See also: [Agent Wallet (zh)](https://aiweb3.school/zh/handbook/bridge/agent-wallet/) · [Wallet / Permission track](https://aiweb3.school/en/handbook/tracks/wallet-permission/)
 
@@ -79,7 +79,7 @@ Production console deploys from GitHub `main` via the linked Vercel project (`ki
 | `RPC_URL` | Public JSON-RPC (not `127.0.0.1` Anvil) |
 | `PRIVATE_KEY` | Demo signer (never commit; use a throwaway funded key) |
 | `CONTRACT_ADDRESS` | Deployed `SessionPolicy` on that network |
-| `LLM_PROVIDER` | `kiln` (Furiosa official) or `kimi` (local/demo) |
+| `LLM_PROVIDER` | `kiln` (`gpt-oss-120b`) or `kimi` (local/demo) |
 | `KILN_API_KEY` / `KIMI_API_KEY` | Matching provider key (missing → mock proposals) |
 
 **CI secrets** (for the GitHub Actions deploy workflow): `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`.
@@ -257,7 +257,7 @@ Agent design minimizes model calls:
 - Payment proposal: single LLM call per user intent
 - No retry loops or self-correction via LLM
 
-## Development Roadmap (Post-Hackathon)
+## Development Roadmap
 
 - [ ] Multi-session support (parallel budgets)
 - [ ] Fiat on/off-ramp integration (Stripe → USDC)
@@ -269,15 +269,13 @@ Agent design minimizes model calls:
 
 MIT
 
-## Challenge Submission
+## Project
 
-**Furiosa Challenge B — GWDC 2026 Korea**  
-Team: [Your Team Name]  
-Demo Video: [Link to recorded demo]
+**KillSwitch Wallet** — open Agentic Commerce controls for AI agents.
 
----
+Demo: https://killswitch-wallet.vercel.app · Local: `./demos/demo-up.sh`
 
-**Built with**: Foundry, TypeScript, Kiln NPU API, EVM (Anvil/Sepolia)
+**Built with**: Foundry, TypeScript, EVM (Anvil / public testnets), optional Kiln or Kimi LLM
 
 
 ## Local verification (Mac, 2026-09-20)
@@ -305,7 +303,7 @@ cp -n .env.example .env   # quote USER_INTENT
 ./demos/04-freeze-session.sh
 ```
 
-## Acceptance mapping (Furiosa Challenge B)
+## Acceptance mapping (demo checklist)
 
 | Criterion | Where it shows |
 |---|---|
@@ -313,7 +311,7 @@ cp -n .env.example .env   # quote USER_INTENT
 | Workflow user → outcome | `demos/` + `apps/console` |
 | Agent task vs code | Table above; contract enforces |
 | Boundaries & stopping (≥2 out-of-scope runs) | `02`/`03` cast demos + `demos/agent-boundary.mjs` (agent path) + `04-freeze-session` |
-| Kiln `gpt-oss-120b` | Furiosa official via `LLM_PROVIDER=kiln`; local demos may use `LLM_PROVIDER=kimi`. Mock without key. |
+| Kiln `gpt-oss-120b` | Optional via `LLM_PROVIDER=kiln`; local demos may use `LLM_PROVIDER=kimi`. Mock without key. |
 | On-chain tx + hash | Every demo prints tx hash; events `PaymentExecuted` / `PaymentDenied` |
 | Human approve / watch / stop / receipt | Console grant/freeze/events; `scripts/audit-session.sh` |
 | Third-party reconstructability | On-chain policy + event logs only |
@@ -333,7 +331,7 @@ Agent helper `feeWei(amount)` / `totalCostWei(amount)` in `agent/src/fees.ts` ke
 
 | Context | Provider | Model / env |
 |---------|----------|-------------|
-| **Furiosa official** | Kiln NPU API | `LLM_PROVIDER=kiln`, `KILN_MODEL=gpt-oss-120b` |
+| **Kiln path** | Kiln NPU API | `LLM_PROVIDER=kiln`, `KILN_MODEL=gpt-oss-120b` |
 | Local build / demos | Kimi (Moonshot) | `LLM_PROVIDER=kimi`, `KIMI_MODEL=…` |
 
 Never commit real API keys. See [KILN_SETUP.md](KILN_SETUP.md) and `.env.example`.

@@ -46,7 +46,7 @@ Budget checks use **amount + 2% fee**. Example: 0.099 ETH payment needs 0.10098 
 
 ### LLM providers
 
-- **Furiosa official**: `LLM_PROVIDER=kiln` + `KILN_API_KEY` → model `gpt-oss-120b`
+- **Kiln (optional)**: `LLM_PROVIDER=kiln` + `KILN_API_KEY` → model `gpt-oss-120b`
 - **Local demos**: `LLM_PROVIDER=kimi` is fine; mock mode if key unset
 - Never commit real keys (see `.env.example`)
 
@@ -357,7 +357,6 @@ RPC_URL=$SEPOLIA_RPC_URL ./demos/01-success-payment.sh
 - **Ethers.js Docs**: https://docs.ethers.org/v6/
 - **Kiln API**: https://kilnapi.com/docs
 - **Architecture Guide**: [ARCHITECTURE.md](ARCHITECTURE.md)
-- **Challenge Details**: Furiosa Challenge B (GWDC 2026 Korea)
 
 ---
 
