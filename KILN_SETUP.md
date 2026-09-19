@@ -1,5 +1,11 @@
 # Kiln API Setup Guide
 
+> **Furiosa Challenge B official path** = Kiln API with model **`gpt-oss-120b`** (`LLM_PROVIDER=kiln`).
+>
+> **Local build/demo** may use **`LLM_PROVIDER=kimi`** (Moonshot) instead — see `.env.example`.
+> Never put real API keys in git commits.
+
+
 This guide explains how to obtain and configure a Kiln API key for the gpt-oss-120b model.
 
 ## Why Kiln API?

@@ -96,4 +96,9 @@ jobs:
           test -x demos/01-success-payment.sh || (echo "demos/01-success-payment.sh missing or not executable" && exit 1)
           test -x demos/02-budget-exceeded.sh || (echo "demos/02-budget-exceeded.sh missing or not executable" && exit 1)
           test -x demos/03-merchant-denied.sh || (echo "demos/03-merchant-denied.sh missing or not executable" && exit 1)
-          echo "✓ All demo scripts present and executable"
+          test -x demos/04-freeze-session.sh || (echo "demos/04-freeze-session.sh missing or not executable" && exit 1)
+          test -f demos/agent-boundary.mjs || (echo "demos/agent-boundary.mjs missing" && exit 1)
+          test -x demos/demo-up.sh || (echo "demos/demo-up.sh missing or not executable" && exit 1)
+          test -f apps/console/package.json || (echo "apps/console/package.json missing" && exit 1)
+          test -f apps/console/index.html || (echo "apps/console/index.html missing" && exit 1)
+          echo "✓ All demo scripts + console present"

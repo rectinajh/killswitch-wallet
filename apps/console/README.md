@@ -1,16 +1,39 @@
 # KillSwitch Console
 
-Minimal local UI for Furiosa B human-side acceptance: grant budget, propose via agent, freeze, and inspect receipts.
+Cyber/ops local UI for Furiosa B: grant budget, propose via agent, force boundary denies, freeze, and watch on-chain receipts.
 
 ## Run
 
-1. Anvil + contract already set up (`./demos/setup.sh`)
-2. From repo root:
-
 ```bash
+# One-click (anvil + setup + console):
+./demos/demo-up.sh
+
+# Or manually after setup:
 node apps/console/server.mjs
+# http://127.0.0.1:8787
 ```
 
-3. Open http://127.0.0.1:8787
+## Panels
 
-Uses `.env` (`RPC_URL`, `PRIVATE_KEY`, `CONTRACT_ADDRESS`). Kiln stays in mock mode until `KILN_API_KEY` is set.
+- **Policy** — budget/spent/remaining bar, deadline countdown, merchant chips, frozen/active
+- **Agent** — intent + Propose; Over-budget / Off-allowlist boundary demos
+- **Chain** — receipt cards with fee (amount + 2%), reason, tx hash; Watch poll
+
+## Fee model
+
+Budget check uses **amount + 2% fee** (`(amount * 2) / 100` in `SessionPolicy.sol`). Console and agent `feeWei()` display the same numbers.
+
+## APIs
+
+| Method | Path | Notes |
+|--------|------|-------|
+| GET | `/api/health` | RPC + contract + LLM status |
+| GET | `/api/policy?sessionId=` | Policy + remaining % |
+| GET | `/api/sessions` | Recent session ids |
+| GET | `/api/events?sessionId=` | proposed/executed/denied + fee |
+| POST | `/api/grant` | Grant session |
+| POST | `/api/freeze` | Kill switch |
+| POST | `/api/propose` | Optional `forceAmountEth`, `forceMerchant`, `allowOffAllowlist` |
+| POST | `/api/demo/boundary` | `{ case: "budget" \| "merchant" }` |
+
+Uses `.env` (`RPC_URL`, `PRIVATE_KEY`, `CONTRACT_ADDRESS`). Furiosa official LLM = Kiln `gpt-oss-120b`; local demos may use `LLM_PROVIDER=kimi`.

@@ -1,9 +1,12 @@
 import { ethers, EventLog } from 'ethers';
+import { feeWei, totalCostWei, feePercentLabel } from './fees.js';
 
 const SESSION_POLICY_ABI = [
   'function getSessionPolicy(uint256 sessionId) view returns (address owner, uint256 budget, uint256 spent, uint256 deadline, address[] memory merchants, bool frozen, bool active)',
   'function getRemainingBudget(uint256 sessionId) view returns (uint256)',
   'function checkMerchant(uint256 sessionId, address merchant) view returns (bool)',
+  'function nextSessionId() view returns (uint256)',
+  'event PaymentProposed(uint256 indexed sessionId, address indexed merchant, uint256 amount, string description)',
   'event PaymentExecuted(uint256 indexed sessionId, address indexed merchant, uint256 amount, uint256 fee, bytes32 txHash)',
   'event PaymentDenied(uint256 indexed sessionId, address indexed merchant, uint256 amount, string reason)',
 ];
@@ -19,23 +22,25 @@ export interface SessionPolicy {
 }
 
 export interface PaymentEvent {
-  type: 'executed' | 'denied';
+  type: 'proposed' | 'executed' | 'denied';
   sessionId: number;
   merchant: string;
   amount: bigint;
   fee?: bigint;
   txHash?: string;
   reason?: string;
+  description?: string;
   blockNumber: number;
   transactionHash: string;
 }
 
 /**
  * PolicyReader: Read on-chain session policy and payment history
- * 
+ *
  * This module reads policy boundaries from the smart contract.
  * IMPORTANT: The agent uses this for advisory purposes only.
  * Actual enforcement happens on-chain in SessionPolicy.sol.
+ * Budget enforcement uses amount + 2% fee (see feeWei).
  */
 export class PolicyReader {
   private contract: ethers.Contract;
@@ -50,12 +55,9 @@ export class PolicyReader {
     );
   }
 
-  /**
-   * Read full session policy from contract
-   */
   async getSessionPolicy(sessionId: number): Promise<SessionPolicy> {
     const policy = await this.contract.getSessionPolicy(sessionId);
-    
+
     return {
       owner: policy.owner,
       budget: policy.budget,
@@ -67,23 +69,30 @@ export class PolicyReader {
     };
   }
 
-  /**
-   * Get remaining budget (budget - spent)
-   */
   async getRemainingBudget(sessionId: number): Promise<bigint> {
     return await this.contract.getRemainingBudget(sessionId);
   }
 
-  /**
-   * Check if a merchant is on the allowlist
-   */
   async checkMerchant(sessionId: number, merchant: string): Promise<boolean> {
     return await this.contract.checkMerchant(sessionId, merchant);
   }
 
+  async getNextSessionId(): Promise<number> {
+    return Number(await this.contract.nextSessionId());
+  }
+
   /**
-   * Check if session is currently usable
+   * List recent session ids (nextSessionId-1 .. max(0, next-limit))
    */
+  async listRecentSessionIds(limit: number = 20): Promise<number[]> {
+    const next = await this.getNextSessionId();
+    const ids: number[] = [];
+    for (let i = next - 1; i >= 0 && ids.length < limit; i--) {
+      ids.push(i);
+    }
+    return ids;
+  }
+
   async isSessionUsable(sessionId: number): Promise<{
     usable: boolean;
     reason?: string;
@@ -110,21 +119,31 @@ export class PolicyReader {
     return { usable: true };
   }
 
-  /**
-   * Fetch payment history for a session
-   */
   async getPaymentHistory(
     sessionId: number,
     fromBlock: number = 0
   ): Promise<PaymentEvent[]> {
     const events: PaymentEvent[] = [];
 
-    const executedFilter = this.contract.filters.PaymentExecuted(sessionId);
-    const executedEvents = await this.contract.queryFilter(
-      executedFilter,
-      fromBlock
-    );
+    const proposedFilter = this.contract.filters.PaymentProposed(sessionId);
+    const proposedEvents = await this.contract.queryFilter(proposedFilter, fromBlock);
+    for (const event of proposedEvents) {
+      const args = (event as EventLog).args;
+      if (!args) continue;
+      events.push({
+        type: 'proposed',
+        sessionId: Number(args.sessionId),
+        merchant: args.merchant,
+        amount: args.amount,
+        fee: feeWei(args.amount as bigint),
+        description: args.description,
+        blockNumber: event.blockNumber,
+        transactionHash: event.transactionHash,
+      });
+    }
 
+    const executedFilter = this.contract.filters.PaymentExecuted(sessionId);
+    const executedEvents = await this.contract.queryFilter(executedFilter, fromBlock);
     for (const event of executedEvents) {
       const args = (event as EventLog).args;
       if (!args) continue;
@@ -141,11 +160,7 @@ export class PolicyReader {
     }
 
     const deniedFilter = this.contract.filters.PaymentDenied(sessionId);
-    const deniedEvents = await this.contract.queryFilter(
-      deniedFilter,
-      fromBlock
-    );
-
+    const deniedEvents = await this.contract.queryFilter(deniedFilter, fromBlock);
     for (const event of deniedEvents) {
       const args = (event as EventLog).args;
       if (!args) continue;
@@ -154,20 +169,22 @@ export class PolicyReader {
         sessionId: Number(args.sessionId),
         merchant: args.merchant,
         amount: args.amount,
+        fee: feeWei(args.amount as bigint),
         reason: args.reason,
         blockNumber: event.blockNumber,
         transactionHash: event.transactionHash,
       });
     }
 
-    events.sort((a, b) => a.blockNumber - b.blockNumber);
+    events.sort((a, b) => {
+      if (a.blockNumber !== b.blockNumber) return a.blockNumber - b.blockNumber;
+      const order = { proposed: 0, executed: 1, denied: 1 } as const;
+      return order[a.type] - order[b.type];
+    });
 
     return events;
   }
 
-  /**
-   * Format policy for display
-   */
   formatPolicy(policy: SessionPolicy): string {
     const budgetEth = ethers.formatEther(policy.budget);
     const spentEth = ethers.formatEther(policy.spent);
@@ -178,20 +195,23 @@ export class PolicyReader {
 Session Policy:
   Owner: ${policy.owner}
   Budget: ${budgetEth} ETH
-  Spent: ${spentEth} ETH
+  Spent: ${spentEth} ETH (includes ${feePercentLabel()} fees on executed payments)
   Remaining: ${remainingEth} ETH
   Deadline: ${deadline.toISOString()}
   Merchants: ${policy.merchants.join(', ')}
   Status: ${policy.active ? (policy.frozen ? 'FROZEN' : 'ACTIVE') : 'CLOSED'}
+  Note: Budget check uses amount + ${feePercentLabel()} fee
     `.trim();
   }
 
-  /**
-   * Format payment event for display
-   */
   formatPaymentEvent(event: PaymentEvent): string {
     const amountEth = ethers.formatEther(event.amount);
-    const status = event.type === 'executed' ? '✓ EXECUTED' : '✗ DENIED';
+    const status =
+      event.type === 'executed'
+        ? '✓ EXECUTED'
+        : event.type === 'denied'
+          ? '✗ DENIED'
+          : '→ PROPOSED';
 
     let details = `
 ${status}
@@ -201,14 +221,21 @@ ${status}
   Tx: ${event.transactionHash}
     `.trim();
 
-    if (event.type === 'executed' && event.fee) {
-      const feeEth = ethers.formatEther(event.fee);
-      details += `\n  Fee: ${feeEth} ETH`;
+    if (event.fee !== undefined) {
+      details += `\n  Fee (${feePercentLabel()}): ${ethers.formatEther(event.fee)} ETH (${event.fee} wei)`;
+      details += `\n  Total cost: ${ethers.formatEther(totalCostWei(event.amount))} ETH`;
+    }
+
+    if (event.type === 'executed' && event.txHash) {
       details += `\n  Receipt Hash: ${event.txHash}`;
     }
 
     if (event.type === 'denied' && event.reason) {
       details += `\n  Reason: ${event.reason}`;
+    }
+
+    if (event.description) {
+      details += `\n  Description: ${event.description}`;
     }
 
     return details;

@@ -24,3 +24,11 @@ demos/*.log
 .vscode/
 .idea/
 *.iml
+
+# Demo bring-up
+.demo-logs/
+
+# local console screenshots / scratch
+apps/console/preview*.png
+*.bak
+apps/console/start-console.sh

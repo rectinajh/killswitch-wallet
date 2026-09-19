@@ -1,3 +1,5 @@
+> Scoring tip: Handbook Agent Wallet four-path demo. https://aiweb3.school/zh/handbook/
+
 # KillSwitch Wallet - Quick Start Guide
 
 Get KillSwitch Wallet running locally in 5 minutes.
@@ -21,6 +23,34 @@ anvil --version
 cast --version
 ```
 
+
+## Fastest path (one-click)
+
+```bash
+./demos/demo-up.sh
+# starts anvil if needed → demos/setup.sh → builds agent → starts console
+# open http://127.0.0.1:8787
+```
+
+Then optionally:
+
+```bash
+./demos/run-all.sh
+node demos/agent-boundary.mjs all   # agent proposes; contract denies (success)
+RUN_AGENT_BOUNDARY=1 ./demos/run-all.sh
+```
+
+### Fee reminder
+
+Budget checks use **amount + 2% fee**. Example: 0.099 ETH payment needs 0.10098 ETH budget headroom.
+
+### LLM providers
+
+- **Furiosa official**: `LLM_PROVIDER=kiln` + `KILN_API_KEY` → model `gpt-oss-120b`
+- **Local demos**: `LLM_PROVIDER=kimi` is fine; mock mode if key unset
+- Never commit real keys (see `.env.example`)
+
+---
 ## Setup (5 Minutes)
 
 ### Step 1: Clone and Configure

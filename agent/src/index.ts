@@ -9,6 +9,8 @@ config();
 export { KilnClient } from './kiln-client.js';
 export { PolicyReader } from './policy-reader.js';
 export { PaymentProposer } from './payment-proposer.js';
+export { feeWei, totalCostWei, feePercentLabel, FEE_PERCENT } from './fees.js';
+export type { ProposePaymentOptions, PaymentResult } from './payment-proposer.js';
 
 function resolveLlmConfig() {
   const provider = (process.env.LLM_PROVIDER || 'kimi').toLowerCase();

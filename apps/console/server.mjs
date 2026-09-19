@@ -4,20 +4,35 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { config as loadEnv } from 'dotenv';
 import { ethers } from 'ethers';
-import { initializeAgent } from '../../agent/dist/index.js';
+import { initializeAgent, feeWei, totalCostWei, feePercentLabel } from '../../agent/dist/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '../..');
 loadEnv({ path: path.join(root, '.env') });
 
 const PORT = Number(process.env.CONSOLE_PORT || 8787);
-const RPC_URL = process.env.RPC_URL || 'http://127.0.0.1:8545';
-const PRIVATE_KEY = process.env.PRIVATE_KEY;
-const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
 const abi = JSON.parse(fs.readFileSync(path.join(__dirname, 'abi.json'), 'utf8'));
 
+function refreshEnv() {
+  loadEnv({ path: path.join(root, '.env'), override: true });
+}
+function env() {
+  refreshEnv();
+  return {
+    rpcUrl: process.env.RPC_URL || 'http://127.0.0.1:8545',
+    privateKey: process.env.PRIVATE_KEY,
+    contractAddress: process.env.CONTRACT_ADDRESS,
+  };
+}
+
+const MERCHANT_OK = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
+const MERCHANT_BAD = '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC';
+
+/** In-memory list of session ids granted via this console */
+const grantedSessions = [];
+
 function send(res, code, obj) {
-  const body = JSON.stringify(obj, (_, v) => typeof v === 'bigint' ? v.toString() : v, 2);
+  const body = JSON.stringify(obj, (_, v) => (typeof v === 'bigint' ? v.toString() : v), 2);
   res.writeHead(code, {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*',
@@ -25,9 +40,27 @@ function send(res, code, obj) {
   res.end(body);
 }
 
-function getContract(signerOrProvider) {
-  if (!CONTRACT_ADDRESS) throw new Error('CONTRACT_ADDRESS missing in .env');
-  return new ethers.Contract(CONTRACT_ADDRESS, abi, signerOrProvider);
+function getContract(signerOrProvider, contractAddress) {
+  const addr = contractAddress || env().contractAddress;
+  if (!addr) throw new Error('CONTRACT_ADDRESS missing in .env — run demos/setup.sh or demos/demo-up.sh');
+  return new ethers.Contract(addr, abi, signerOrProvider);
+}
+
+function llmMeta() {
+  const llmProvider = (process.env.LLM_PROVIDER || 'kimi').toLowerCase();
+  const mockMode =
+    llmProvider === 'kimi'
+      ? !process.env.KIMI_API_KEY || process.env.KIMI_API_KEY === 'your_kimi_key_here'
+      : !process.env.KILN_API_KEY || process.env.KILN_API_KEY === 'your_key_here';
+  return {
+    provider: llmProvider,
+    model:
+      llmProvider === 'kimi'
+        ? process.env.KIMI_MODEL || 'kimi-k2.6'
+        : process.env.KILN_MODEL || 'gpt-oss-120b',
+    mockMode,
+    furiosaOfficial: 'kiln gpt-oss-120b',
+  };
 }
 
 async function readBody(req) {
@@ -37,9 +70,45 @@ async function readBody(req) {
   return JSON.parse(Buffer.concat(chunks).toString('utf8'));
 }
 
+function enrichEvent(e) {
+  const amountWei = BigInt(e.amount?.toString?.() ?? e.amount ?? 0);
+  const fee =
+    e.fee !== undefined && e.fee !== null
+      ? BigInt(e.fee.toString())
+      : feeWei(amountWei);
+  return {
+    type: e.type,
+    sessionId: e.sessionId,
+    merchant: e.merchant,
+    amount: amountWei.toString(),
+    amountEth: ethers.formatEther(amountWei),
+    fee: fee.toString(),
+    feeEth: ethers.formatEther(fee),
+    totalCost: totalCostWei(amountWei).toString(),
+    totalCostEth: ethers.formatEther(totalCostWei(amountWei)),
+    feePercent: feePercentLabel(),
+    reason: e.reason,
+    description: e.description,
+    receiptHash: e.txHash,
+    transactionHash: e.transactionHash,
+    blockNumber: e.blockNumber,
+  };
+}
+
+async function rpcReachable() {
+  try {
+    const provider = new ethers.JsonRpcProvider(env().rpcUrl);
+    await provider.getBlockNumber();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://127.0.0.1:${PORT}`);
+    const { rpcUrl: RPC_URL, privateKey: PRIVATE_KEY, contractAddress: CONTRACT_ADDRESS } = env();
     if (req.method === 'OPTIONS') {
       res.writeHead(204, {
         'Access-Control-Allow-Origin': '*',
@@ -55,30 +124,63 @@ const server = http.createServer(async (req, res) => {
       return res.end(html);
     }
 
+    if (req.method === 'GET' && url.pathname === '/api/health') {
+      const rpcOk = await rpcReachable();
+      const llm = llmMeta();
+      const e = env();
+      return send(res, 200, {
+        ok: rpcOk && Boolean(e.contractAddress),
+        rpcOk,
+        rpcUrl: e.rpcUrl,
+        contractAddress: e.contractAddress || null,
+        contractConfigured: Boolean(e.contractAddress),
+        feeModel: `amount + ${feePercentLabel()} (budget checks totalCost)`,
+        feeFormula: '(amount * 2) / 100',
+        llm,
+        time: new Date().toISOString(),
+      });
+    }
+
+    if (req.method === 'GET' && url.pathname === '/api/sessions') {
+      const provider = new ethers.JsonRpcProvider(RPC_URL);
+      const c = getContract(provider);
+      const next = Number(await c.nextSessionId());
+      const ids = [];
+      for (let i = next - 1; i >= 0 && ids.length < 30; i--) ids.push(i);
+      const merged = [...new Set([...grantedSessions, ...ids])].sort((a, b) => b - a);
+      return send(res, 200, { nextSessionId: next, sessions: merged, grantedViaConsole: grantedSessions });
+    }
+
     if (req.method === 'GET' && url.pathname === '/api/policy') {
       const sessionId = Number(url.searchParams.get('sessionId') || 0);
       const provider = new ethers.JsonRpcProvider(RPC_URL);
       const c = getContract(provider);
       const p = await c.getSessionPolicy(sessionId);
-      const llmProvider = (process.env.LLM_PROVIDER || 'kimi').toLowerCase();
-      const mockMode = llmProvider === 'kimi'
-        ? (!process.env.KIMI_API_KEY || process.env.KIMI_API_KEY === 'your_kimi_key_here')
-        : (!process.env.KILN_API_KEY || process.env.KILN_API_KEY === 'your_key_here');
+      const budget = p[1];
+      const spent = p[2];
+      const remaining = budget - spent;
+      const llm = llmMeta();
+      const now = Math.floor(Date.now() / 1000);
+      const deadline = Number(p[3]);
       return send(res, 200, {
         rpcUrl: RPC_URL,
         contractAddress: CONTRACT_ADDRESS,
-        provider: llmProvider,
-        model: llmProvider === 'kimi' ? (process.env.KIMI_MODEL || 'kimi-k2.6') : (process.env.KILN_MODEL || 'gpt-oss-120b'),
-        mockMode,
+        feeModel: `Budget check uses amount + ${feePercentLabel()} fee`,
+        feeFormula: '(amount * 2) / 100',
+        ...llm,
         policy: {
           owner: p[0],
-          budgetWei: p[1].toString(),
-          spentWei: p[2].toString(),
-          budgetEth: ethers.formatEther(p[1]),
-          spentEth: ethers.formatEther(p[2]),
-          remainingEth: ethers.formatEther(p[1] - p[2]),
-          deadline: Number(p[3]),
-          deadlineIso: new Date(Number(p[3]) * 1000).toISOString(),
+          budgetWei: budget.toString(),
+          spentWei: spent.toString(),
+          remainingWei: remaining.toString(),
+          budgetEth: ethers.formatEther(budget),
+          spentEth: ethers.formatEther(spent),
+          remainingEth: ethers.formatEther(remaining),
+          spentPct: budget > 0n ? Number((spent * 10000n) / budget) / 100 : 0,
+          remainingPct: budget > 0n ? Number((remaining * 10000n) / budget) / 100 : 0,
+          deadline,
+          deadlineIso: new Date(deadline * 1000).toISOString(),
+          secondsLeft: Math.max(0, deadline - now),
           merchants: p[4],
           frozen: p[5],
           active: p[6],
@@ -97,9 +199,12 @@ const server = http.createServer(async (req, res) => {
       const tx = await c.grantSession(budgetWei, duration, merchants, { value: budgetWei });
       const receipt = await tx.wait();
       const next = await c.nextSessionId();
+      const sessionId = Number(next) - 1;
+      if (!grantedSessions.includes(sessionId)) grantedSessions.unshift(sessionId);
       return send(res, 200, {
         transactionHash: receipt.hash,
-        sessionId: Number(next) - 1,
+        sessionId,
+        note: `Budget check will use amount + ${feePercentLabel()} fee`,
       });
     }
 
@@ -116,11 +221,78 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && url.pathname === '/api/propose') {
       const body = await readBody(req);
       const { paymentProposer } = await initializeAgent();
+      const opts = {};
+      if (body.forceAmountEth !== undefined) opts.forceAmountEth = String(body.forceAmountEth);
+      if (body.forceMerchant !== undefined) opts.forceMerchant = String(body.forceMerchant);
+      if (body.allowOffAllowlist) opts.allowOffAllowlist = true;
+      if (body.skipLlm) opts.skipLlm = true;
       const result = await paymentProposer.proposePayment(
         Number(body.sessionId || 0),
-        body.intent || 'Buy coffee for 0.03 ETH'
+        body.intent || 'Buy coffee for 0.03 ETH',
+        opts
       );
       return send(res, 200, result);
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/demo/boundary') {
+      const body = await readBody(req);
+      const which = (body.case || 'budget').toLowerCase();
+      const { paymentProposer, signer } = await initializeAgent();
+      const provider = new ethers.JsonRpcProvider(RPC_URL);
+      const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
+      const c = getContract(wallet);
+
+      let budgetEth;
+      let merchants;
+      let forceAmountEth;
+      let forceMerchant;
+      let allowOffAllowlist;
+      let intent;
+
+      if (which === 'merchant') {
+        budgetEth = '1';
+        merchants = [MERCHANT_OK];
+        forceAmountEth = '0.01';
+        forceMerchant = MERCHANT_BAD;
+        allowOffAllowlist = true;
+        intent = 'Boundary demo: off-allowlist merchant';
+      } else {
+        // budget: 0.1 ETH; 0.099 + 2% = 0.10098 > 0.1
+        budgetEth = '0.1';
+        merchants = [MERCHANT_OK];
+        forceAmountEth = '0.099';
+        forceMerchant = MERCHANT_OK;
+        allowOffAllowlist = false;
+        intent = 'Boundary demo: over-budget (amount + 2% fee)';
+      }
+
+      const budgetWei = ethers.parseEther(budgetEth);
+      const tx = await c.grantSession(budgetWei, 3600, merchants, { value: budgetWei });
+      await tx.wait();
+      const next = await c.nextSessionId();
+      const sessionId = Number(next) - 1;
+      if (!grantedSessions.includes(sessionId)) grantedSessions.unshift(sessionId);
+
+      const amountWei = ethers.parseEther(forceAmountEth);
+      const result = await paymentProposer.proposePayment(sessionId, intent, {
+        forceAmountEth,
+        forceMerchant,
+        allowOffAllowlist,
+        skipLlm: true,
+      });
+
+      return send(res, 200, {
+        case: which,
+        sessionId,
+        feePreview: {
+          amountEth: forceAmountEth,
+          feeEth: ethers.formatEther(feeWei(amountWei)),
+          totalCostEth: ethers.formatEther(totalCostWei(amountWei)),
+          feePercent: feePercentLabel(),
+          note: 'Deny is a success outcome — contract enforced the boundary',
+        },
+        result,
+      });
     }
 
     if (req.method === 'GET' && url.pathname === '/api/events') {
@@ -128,16 +300,8 @@ const server = http.createServer(async (req, res) => {
       const { policyReader } = await initializeAgent();
       const events = await policyReader.getPaymentHistory(sessionId, 0);
       return send(res, 200, {
-        events: events.map((e) => ({
-          type: e.type,
-          sessionId: e.sessionId,
-          merchant: e.merchant,
-          amount: e.amount?.toString?.() ?? String(e.amount),
-          fee: e.fee?.toString?.(),
-          reason: e.reason,
-          transactionHash: e.transactionHash,
-          blockNumber: e.blockNumber,
-        })),
+        feeModel: `amount + ${feePercentLabel()}`,
+        events: events.map(enrichEvent),
       });
     }
 
@@ -148,6 +312,8 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, '127.0.0.1', () => {
+  const e = env();
   console.log(`KillSwitch console http://127.0.0.1:${PORT}`);
-  console.log(`Contract ${CONTRACT_ADDRESS || '(unset)'}`);
+  console.log(`Contract ${e.contractAddress || '(unset)'}`);
+  console.log(`Fee model: amount + ${feePercentLabel()} (budget checks totalCost)`);
 });

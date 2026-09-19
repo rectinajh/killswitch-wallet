@@ -3,62 +3,894 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>KillSwitch Console</title>
+  <title>KillSwitch Console · 信任边界演示</title>
   <style>
-    :root { color-scheme: dark; --bg:#0b0f14; --panel:#121821; --line:#243041; --text:#e8eef7; --muted:#93a0b4; --ok:#3ddc97; --bad:#ff6b6b; --acc:#6ea8fe; }
+    :root {
+      color-scheme: dark;
+      --bg: #03050a;
+      --panel: rgba(6, 14, 28, 0.55);
+      --panel-border: rgba(0, 255, 255, 0.22);
+      --text: #e8fbff;
+      --muted: #7a92b0;
+      --cyan: #00f6ff;
+      --magenta: #ff2bd6;
+      --ok: #39ffb6;
+      --bad: #ff3d6e;
+      --warn: #ffd166;
+      --violet: #8b5cff;
+      --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      --glow-cyan: 0 0 10px rgba(0, 246, 255, 0.1);
+      --glow-mag: 0 0 10px rgba(255, 43, 214, 0.08);
+    }
     * { box-sizing: border-box; }
-    body { margin:0; font:14px/1.45 ui-sans-serif, system-ui, -apple-system, sans-serif; background:radial-gradient(1200px 600px at 10% -10%, #1a2740, var(--bg)); color:var(--text); }
-    header { padding:20px 24px; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; gap:16px; align-items:center; }
-    h1 { margin:0; font-size:18px; letter-spacing:.02em; }
-    .sub { color:var(--muted); font-size:12px; }
-    main { display:grid; grid-template-columns: 1.1fr 1fr; gap:16px; padding:16px 24px 40px; }
-    @media (max-width: 960px) { main { grid-template-columns:1fr; } }
-    .card { background:rgba(18,24,33,.92); border:1px solid var(--line); border-radius:14px; padding:16px; }
-    .card h2 { margin:0 0 12px; font-size:14px; color:var(--acc); text-transform:uppercase; letter-spacing:.08em; }
-    label { display:block; color:var(--muted); font-size:12px; margin:10px 0 4px; }
-    input, textarea, select, button { width:100%; border-radius:10px; border:1px solid var(--line); background:#0d131c; color:var(--text); padding:10px 12px; }
-    textarea { min-height:72px; resize:vertical; }
-    button { cursor:pointer; background:linear-gradient(180deg,#2b4c7e,#1d3358); border-color:#35598f; font-weight:600; }
-    button.danger { background:linear-gradient(180deg,#7a2e2e,#5a1f1f); border-color:#a04545; }
-    button.ghost { background:#0d131c; }
-    .row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-    .actions { display:flex; gap:8px; margin-top:12px; }
-    .actions button { width:auto; flex:1; }
-    pre { white-space:pre-wrap; word-break:break-word; background:#0a1018; border:1px solid var(--line); border-radius:10px; padding:12px; max-height:360px; overflow:auto; font-size:12px; color:#c9d4e5; }
-    .pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; border:1px solid var(--line); color:var(--muted); }
-    .pill.ok { color:var(--ok); border-color:#2f6b52; }
-    .pill.bad { color:var(--bad); border-color:#7a3a3a; }
-    .logline { margin:0 0 8px; padding-bottom:8px; border-bottom:1px dashed #243041; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      font: 14px/1.45 var(--font);
+      color: var(--text);
+      background: var(--bg);
+      overflow-x: hidden;
+    }
+
+    /* Layers */
+    #fx-canvas {
+      position: fixed; inset: 0; z-index: -3; pointer-events: none;
+      width: 100%; height: 100%;
+    }
+    .bg {
+      position: fixed; inset: 0; z-index: -2; pointer-events: none;
+      background:
+        radial-gradient(1000px 620px at 8% -8%, rgba(0, 246, 255, 0.1), transparent 58%),
+        radial-gradient(900px 560px at 92% 0%, rgba(255, 43, 214, 0.08), transparent 55%),
+        radial-gradient(700px 500px at 50% 110%, rgba(139, 92, 255, 0.06), transparent 50%),
+        linear-gradient(180deg, #040814 0%, #03050a 40%, #05020c 100%);
+      animation: aurora 28s ease-in-out infinite alternate;
+    }
+    @keyframes aurora {
+      0% { filter: hue-rotate(0deg) saturate(1); transform: scale(1); }
+      100% { filter: hue-rotate(8deg) saturate(1.05); transform: scale(1.01); }
+    }
+    .grid {
+      position: fixed; inset: 0; z-index: -1; pointer-events: none;
+      background-image:
+        linear-gradient(rgba(0,246,255,0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,43,214,0.04) 1px, transparent 1px);
+      background-size: 56px 56px;
+      transform-origin: center;
+      animation: gridWarp 12s linear infinite;
+      mask-image: radial-gradient(ellipse at 50% 30%, black 20%, transparent 78%);
+      opacity: 0.12;
+    }
+    @keyframes gridWarp {
+      0% { background-position: 0 0, 0 0; }
+      100% { background-position: 0 56px, 56px 0; }
+    }
+    .scanlines {
+      position: fixed; inset: 0; z-index: 40; pointer-events: none;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 3px,
+        rgba(0,0,0,0.06) 3px,
+        rgba(0,0,0,0.06) 4px
+      );
+      mix-blend-mode: multiply;
+      opacity: 0.18;
+    }
+    .scan-beam {
+      position: fixed; left: 0; right: 0; height: 120px; z-index: 39; pointer-events: none;
+      background: linear-gradient(180deg, transparent, rgba(0,246,255,0.03), transparent);
+      animation: beam 12s linear infinite;
+      mix-blend-mode: screen;
+    }
+    @keyframes beam {
+      0% { top: -120px; }
+      100% { top: 110%; }
+    }
+    .vignette {
+      position: fixed; inset: 0; z-index: 38; pointer-events: none;
+      background: radial-gradient(ellipse at center, transparent 45%, rgba(0,0,0,0.35) 100%);
+    }
+
+    header.hero {
+      padding: 22px 28px 14px;
+      border-bottom: 1px solid rgba(0,246,255,0.15);
+      display: flex; flex-wrap: wrap; gap: 16px;
+      justify-content: space-between; align-items: flex-start;
+      backdrop-filter: blur(18px) saturate(1.3);
+      background: linear-gradient(180deg, rgba(0,20,40,0.72), rgba(5,7,13,0.35));
+      position: relative;
+    }
+    header.hero::after {
+      content: '';
+      position: absolute; left: 0; right: 0; bottom: -1px; height: 2px;
+      background: linear-gradient(90deg, transparent, var(--cyan), var(--magenta), var(--violet), transparent);
+      background-size: 200% 100%;
+      animation: borderFlow 10s linear infinite;
+      box-shadow: 0 0 16px rgba(0,246,255,0.5);
+    }
+    @keyframes borderFlow {
+      0% { background-position: 0% 50%; }
+      100% { background-position: 200% 50%; }
+    }
+    .brand { display: flex; gap: 14px; align-items: center; }
+    .logo {
+      width: 46px; height: 46px; border-radius: 14px;
+      background: conic-gradient(from 0deg, var(--cyan), var(--magenta), var(--violet), var(--cyan));
+      box-shadow: var(--glow-cyan), var(--glow-mag);
+      position: relative;
+      animation: logoSpin 18s linear infinite;
+    }
+    .logo::before {
+      content: ''; position: absolute; inset: -4px; border-radius: 16px;
+      background: conic-gradient(from 180deg, transparent, rgba(0,246,255,0.5), transparent 40%);
+      animation: logoSpin 24s linear infinite reverse;
+      z-index: -1; filter: blur(2px);
+    }
+    .logo::after {
+      content: ''; position: absolute; inset: 3px; border-radius: 11px;
+      background: radial-gradient(circle at 30% 30%, #123, #071018 70%);
+      box-shadow: inset 0 0 12px rgba(0,246,255,0.35);
+    }
+    @keyframes logoSpin { to { transform: rotate(360deg); } }
+    h1 {
+      margin: 0; font-size: 22px; letter-spacing: 0.08em; font-weight: 800;
+      text-transform: uppercase;
+      background: linear-gradient(90deg, var(--cyan), #fff, var(--magenta), var(--cyan));
+      background-size: 220% auto;
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+      animation: shimmer 12s linear infinite;
+      filter: drop-shadow(0 0 4px rgba(0,246,255,0.15));
+    }
+    @keyframes shimmer {
+      0% { background-position: 0% center; }
+      100% { background-position: 220% center; }
+    }
+    .tagline {
+      color: var(--muted); font-size: 12px; margin-top: 4px;
+      font-family: var(--mono); letter-spacing: 0.02em;
+    }
+    .tagline::before {
+      content: '> ';
+      color: var(--cyan);
+      animation: none; opacity: 0.7;
+    }
+    .status-strip {
+      display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+      font-size: 12px; color: var(--muted);
+      font-family: var(--mono);
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(0,246,255,0.2);
+      background: rgba(0,0,0,0.35);
+      box-shadow: inset 0 0 20px rgba(0,246,255,0.08);
+    }
+    .led {
+      width: 9px; height: 9px; border-radius: 50%;
+      background: var(--warn); box-shadow: 0 0 10px var(--warn);
+      display: inline-block; margin-right: 6px;
+    }
+    .led.ok { background: var(--ok); box-shadow: 0 0 6px rgba(57,255,182,0.45); }
+    .led.bad { background: var(--bad); box-shadow: 0 0 12px var(--bad); animation: blink 0.8s infinite; }
+    .led.live { animation: pulseLed 1s ease-in-out infinite; }
+    @keyframes pulseLed {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.45); opacity: 0.55; }
+    }
+    @keyframes blink { 50% { opacity: 0.25; } }
+
+    .trust {
+      margin: 14px 28px 0;
+      padding: 12px 16px; border-radius: 14px;
+      border: 1px solid rgba(255,43,214,0.28);
+      background:
+        linear-gradient(90deg, rgba(0,246,255,0.08), rgba(255,43,214,0.08)),
+        rgba(0,0,0,0.25);
+      display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center;
+      font-size: 12px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 0 30px rgba(255,43,214,0.08);
+    }
+    .trust::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,0.025) 50%, transparent 70%);
+      transform: translateX(-100%);
+      animation: sweep 9s ease-in-out infinite;
+    }
+    @keyframes sweep {
+      0%, 40% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+    .trust .step {
+      display: flex; align-items: center; gap: 8px;
+      color: var(--text); position: relative; z-index: 1;
+    }
+    .trust .num {
+      width: 24px; height: 24px; border-radius: 50%;
+      display: grid; place-items: center;
+      font-weight: 800; font-size: 11px;
+      background: rgba(0,246,255,0.12); color: var(--cyan);
+      border: 1px solid rgba(0,246,255,0.55);
+      box-shadow: 0 0 12px rgba(0,246,255,0.35);
+      animation: none;
+    }
+    @keyframes numPulse {
+      0%, 100% { box-shadow: 0 0 8px rgba(0,246,255,0.25); }
+      50% { box-shadow: 0 0 18px rgba(0,246,255,0.7); }
+    }
+    .trust .arrow {
+      color: var(--magenta); opacity: 0.85;
+      animation: none; opacity: 0.7;
+      font-weight: 700;
+    }
+    @keyframes arrowBlink {
+      0%, 100% { opacity: 0.35; transform: translateX(0); }
+      50% { opacity: 1; transform: translateX(3px); }
+    }
+    .trust .zh { color: var(--muted); width: 100%; position: relative; z-index: 1; }
+
+    .briefing {
+      margin: 16px 28px 0;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+    @media (max-width: 960px) { .briefing { grid-template-columns: 1fr; } }
+    .brief-card {
+      border-radius: 14px;
+      padding: 14px 16px 16px;
+      border: 1px solid rgba(0,246,255,0.2);
+      background: linear-gradient(160deg, rgba(0,30,50,0.65), rgba(8,12,22,0.75));
+      backdrop-filter: blur(14px);
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.25s, box-shadow 0.25s;
+    }
+    .brief-card:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.45), 0 0 24px rgba(0,246,255,0.15);
+    }
+    .brief-card::before {
+      content: '';
+      position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+      background: linear-gradient(180deg, var(--cyan), var(--magenta));
+      box-shadow: 0 0 12px var(--cyan);
+    }
+    .brief-card::after {
+      content: '';
+      position: absolute; top: -40%; right: -20%; width: 120px; height: 120px;
+      background: radial-gradient(circle, rgba(0,246,255,0.08), transparent 70%);
+      animation: orb 14s ease-in-out infinite;
+    }
+    .brief-card.pain::before { background: linear-gradient(180deg, var(--bad), var(--magenta)); box-shadow: 0 0 12px var(--bad); }
+    .brief-card.fix::before { background: linear-gradient(180deg, var(--ok), var(--cyan)); box-shadow: 0 0 12px var(--ok); }
+    @keyframes orb {
+      0%, 100% { transform: translate(0,0); opacity: 0.6; }
+      50% { transform: translate(-20px, 30px); opacity: 1; }
+    }
+    .brief-card h3 {
+      margin: 0 0 8px; font-size: 11px; letter-spacing: 0.16em;
+      text-transform: uppercase; color: var(--cyan);
+      text-shadow: none;
+      position: relative; z-index: 1;
+    }
+    .brief-card.pain h3 { color: var(--bad); text-shadow: none; }
+    .brief-card.fix h3 { color: var(--ok); text-shadow: none; }
+    .brief-card p { margin: 0; font-size: 13px; color: var(--text); line-height: 1.55; position: relative; z-index: 1; }
+    .brief-card .en { margin-top: 8px; font-size: 11px; color: var(--muted); line-height: 1.45; position: relative; z-index: 1; }
+
+    .guide {
+      margin: 14px 28px 0;
+      padding: 14px 16px;
+      border-radius: 16px;
+      border: 1px solid rgba(255,43,214,0.35);
+      background:
+        linear-gradient(135deg, rgba(0,246,255,0.08), rgba(255,43,214,0.1)),
+        rgba(4, 8, 18, 0.7);
+      box-shadow: 0 0 40px rgba(255,43,214,0.1), inset 0 0 40px rgba(0,246,255,0.04);
+      position: relative;
+      overflow: hidden;
+    }
+    .guide::before {
+      content: 'SYSTEM // DEMO PROTOCOL';
+      position: absolute; top: 8px; right: 14px;
+      font: 10px var(--mono); color: rgba(0,246,255,0.45);
+      letter-spacing: 0.12em;
+    }
+    .guide-top {
+      display: flex; flex-wrap: wrap; gap: 12px;
+      justify-content: space-between; align-items: center;
+      margin-bottom: 12px;
+    }
+    .guide-top h3 {
+      margin: 0; font-size: 12px; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--magenta);
+      text-shadow: none;
+    }
+    .guide-steps {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+    @media (max-width: 960px) { .guide-steps { grid-template-columns: 1fr 1fr; } }
+    .gstep {
+      text-align: left;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(0,246,255,0.22);
+      background: rgba(0,0,0,0.4);
+      color: var(--text);
+      cursor: pointer;
+      transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s, background 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+    .gstep::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(120deg, transparent, rgba(0,246,255,0.12), transparent);
+      transform: translateX(-120%);
+      transition: transform 0.5s;
+    }
+    .gstep:hover::after { transform: translateX(120%); }
+    .gstep:hover { border-color: var(--cyan); transform: translateY(-1px); box-shadow: var(--glow-cyan); }
+    .gstep.active {
+      border-color: var(--magenta);
+      background: rgba(255,43,214,0.12);
+      box-shadow: var(--glow-mag);
+      animation: none;
+    }
+    @keyframes activeGlow {
+      0%, 100% { box-shadow: 0 0 12px rgba(255,43,214,0.3); }
+      50% { box-shadow: 0 0 28px rgba(255,43,214,0.65); }
+    }
+    .gstep.done {
+      border-color: rgba(57,255,182,0.55);
+      box-shadow: 0 0 16px rgba(57,255,182,0.2);
+    }
+    .gstep .gs-num {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 20px; height: 20px; border-radius: 50%;
+      font-size: 11px; font-weight: 800; margin-right: 6px;
+      background: rgba(0,246,255,0.15); color: var(--cyan);
+      border: 1px solid rgba(0,246,255,0.4);
+    }
+    .gstep.done .gs-num { background: rgba(57,255,182,0.2); color: var(--ok); border-color: rgba(57,255,182,0.5); }
+    .gstep .gs-title { font-weight: 700; font-size: 12px; }
+    .gstep .gs-sub { display: block; margin-top: 4px; font-size: 11px; color: var(--muted); }
+    .coach {
+      margin-top: 12px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: rgba(0,0,0,0.45);
+      border: 1px dashed rgba(0,246,255,0.35);
+      font-size: 13px;
+      min-height: 42px;
+      box-shadow: inset 0 0 20px rgba(0,246,255,0.05);
+    }
+    .coach strong { color: var(--cyan); text-shadow: none; }
+    .meaning {
+      margin: 12px 28px 0;
+      padding: 10px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(57,255,182,0.35);
+      background: rgba(57,255,182,0.08);
+      font-size: 13px;
+      color: var(--text);
+      display: none;
+      box-shadow: 0 0 24px rgba(57,255,182,0.12);
+    }
+    .meaning.show { display: block; animation: slideIn 0.35s ease; }
+    .meaning.denied {
+      border-color: rgba(255,61,110,0.5);
+      background: rgba(255,61,110,0.1);
+      box-shadow: 0 0 24px rgba(255,61,110,0.15);
+    }
+    @keyframes meaningPulse {
+      0%, 100% { filter: brightness(1); }
+      50% { filter: brightness(1.15); }
+    }
+    .panel-caption {
+      margin: -8px 0 12px;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      padding: 16px 28px 48px;
+    }
+    @media (max-width: 1080px) { main { grid-template-columns: 1fr; } }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 16px;
+      padding: 16px 18px;
+      backdrop-filter: blur(18px) saturate(1.25);
+      box-shadow:
+        0 8px 32px rgba(0,0,0,0.45),
+        inset 0 1px 0 rgba(255,255,255,0.05),
+        0 0 0 1px rgba(0,246,255,0.04);
+      position: relative;
+      overflow: visible;
+      transition: border-color 0.25s, box-shadow 0.25s, transform 0.25s;
+    }
+    .card:hover {
+      border-color: rgba(0, 246, 255, 0.45);
+      box-shadow: 0 10px 40px rgba(0,0,0,0.5), var(--glow-cyan);
+      transform: translateY(-1px);
+    }
+    .card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, transparent, var(--cyan), var(--magenta), var(--violet), transparent);
+      background-size: 200% 100%;
+      animation: borderFlow 10s linear infinite;
+      opacity: 0.85;
+    }
+    .card::after {
+      content: none;
+    }
+    .card h2 {
+      margin: 0 0 14px; font-size: 12px; letter-spacing: 0.16em;
+      text-transform: uppercase; color: var(--cyan);
+      display: flex; align-items: center; gap: 8px;
+      text-shadow: none;
+      position: relative; z-index: 1;
+    }
+    .card h2 .hint { margin-left: auto; color: var(--muted); font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 11px; }
+
+    label { display: block; color: var(--muted); font-size: 11px; margin: 10px 0 4px; letter-spacing: 0.06em; text-transform: uppercase; }
+    input, textarea, select, button {
+      width: 100%; border-radius: 10px;
+      border: 1px solid rgba(0, 246, 255, 0.1);
+      background: rgba(2, 8, 18, 0.88);
+      color: var(--text); padding: 10px 12px;
+      font: inherit; outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+      position: relative; z-index: 1;
+    }
+    input:focus, textarea:focus, select:focus {
+      border-color: var(--cyan);
+      box-shadow: 0 0 0 3px rgba(0, 246, 255, 0.18), var(--glow-cyan);
+    }
+    textarea { min-height: 68px; resize: vertical; font-family: var(--mono); font-size: 12px; }
+    button {
+      cursor: pointer; font-weight: 700;
+      background: linear-gradient(135deg, rgba(0,246,255,0.28), rgba(255,43,214,0.22));
+      border-color: rgba(0, 246, 255, 0.5);
+      letter-spacing: 0.03em;
+      text-shadow: none;
+    }
+    button:hover { transform: translateY(-1px); box-shadow: var(--glow-cyan); }
+    button:active { transform: translateY(0) scale(0.98); }
+    button:disabled { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
+    button.danger {
+      background: linear-gradient(135deg, rgba(255,61,110,0.4), rgba(120,10,40,0.55));
+      border-color: rgba(255, 61, 110, 0.6);
+      text-shadow: none;
+    }
+    button.danger:hover { box-shadow: 0 0 24px rgba(255,61,110,0.45); }
+    button.ghost {
+      background: rgba(2, 8, 18, 0.92);
+      border-color: rgba(122, 146, 176, 0.35);
+      text-shadow: none;
+    }
+    button.ok-btn {
+      background: linear-gradient(135deg, rgba(57,255,182,0.28), rgba(10,80,60,0.45));
+      border-color: rgba(57, 255, 182, 0.5);
+    }
+    button.primary-cta {
+      width: auto;
+      min-width: 168px;
+      padding: 10px 18px;
+      background: linear-gradient(135deg, rgba(255,43,214,0.55), rgba(0,246,255,0.4));
+      border-color: rgba(255,43,214,0.7);
+      box-shadow: 0 0 12px rgba(255,43,214,0.2);
+    }
+    @keyframes ctaPulse {
+      0%, 100% { box-shadow: 0 0 16px rgba(255,43,214,0.35); }
+      50% { box-shadow: 0 0 32px rgba(255,43,214,0.7), 0 0 48px rgba(0,246,255,0.25); }
+    }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .actions button { width: auto; flex: 1; min-width: 110px; }
+
+    .badges { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+    .pill {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 5px 10px; border-radius: 999px; font-size: 11px; line-height: 1.2;
+      border: 1px solid rgba(122,146,176,0.35); color: var(--muted);
+      background: rgba(0,0,0,0.35);
+    }
+    .pill.ok { color: var(--ok); border-color: rgba(57,255,182,0.5); box-shadow: 0 0 14px rgba(57,255,182,0.2); }
+    .pill.bad { color: var(--bad); border-color: rgba(255,61,110,0.5); box-shadow: 0 0 14px rgba(255,61,110,0.2); }
+    .pill.cyan { color: var(--cyan); border-color: rgba(0,246,255,0.45); box-shadow: 0 0 12px rgba(0,246,255,0.15); }
+    .pill.mag { color: var(--magenta); border-color: rgba(255,43,214,0.45); }
+
+    .bar-wrap {
+      height: 14px; border-radius: 999px;
+      background: rgba(0,0,0,0.35);
+      border: 1px solid rgba(0,246,255,0.2);
+      overflow: hidden; position: relative;
+      box-shadow: inset 0 0 12px rgba(0,0,0,0.6);
+    }
+    .bar {
+      height: 100%; width: 0%;
+      background: linear-gradient(90deg, var(--magenta), var(--violet), var(--cyan), var(--ok));
+      background-size: 300% 100%;
+      animation: barShine 6s linear infinite;
+      transition: width 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+      box-shadow: 0 0 20px rgba(0,246,255,0.65);
+      position: relative;
+    }
+    .bar::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.45), transparent);
+      animation: barGlint 5s ease-in-out infinite;
+    }
+    @keyframes barShine {
+      0% { background-position: 0% 50%; }
+      100% { background-position: 300% 50%; }
+    }
+    @keyframes barGlint {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+    .metrics {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+      margin: 12px 0 4px; font-family: var(--mono); font-size: 12px;
+    }
+    .metric {
+      padding: 8px 10px; border-radius: 10px;
+      background: rgba(0,0,0,0.4); border: 1px solid rgba(0,246,255,0.12);
+      box-shadow: inset 0 0 16px rgba(0,246,255,0.04);
+    }
+    .metric .k { color: var(--muted); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; }
+    .metric .v { color: var(--cyan); margin-top: 2px; word-break: break-all; text-shadow: none; }
+
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .chip {
+      font-family: var(--mono); font-size: 11px;
+      padding: 4px 8px; border-radius: 8px;
+      background: rgba(0,246,255,0.08);
+      border: 1px solid rgba(0,246,255,0.3);
+      color: var(--cyan);
+      box-shadow: 0 0 10px rgba(0,246,255,0.1);
+    }
+
+    .countdown {
+      font-family: var(--mono); font-size: 18px; color: var(--magenta);
+      text-shadow: 0 0 6px rgba(255,43,214,0.2);
+      animation: none;
+    }
+    @keyframes countFlicker {
+      0%, 92%, 100% { opacity: 1; }
+      93% { opacity: 0.55; }
+      94% { opacity: 1; }
+      96% { opacity: 0.35; }
+    }
+
+    .fee-note {
+      margin-top: 10px; padding: 8px 10px; border-radius: 10px;
+      font-size: 11px; color: var(--muted);
+      border: 1px dashed rgba(255,209,102,0.4);
+      background: rgba(255,209,102,0.06);
+    }
+    .fee-note strong { color: var(--warn); }
+
+    #receipts {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      max-height: 520px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 2px 0 8px;
+    }
+    .receipt {
+      display: block;
+      border-radius: 12px;
+      padding: 12px 14px;
+      border: 1px solid rgba(0, 246, 255, 0.25);
+      background: #0a1220;
+      border-left: 3px solid #00c8d4;
+      box-sizing: border-box;
+    }
+    .receipt.executed { border-left-color: #39ffb6; border-color: rgba(57,255,182,0.35); }
+    .receipt.denied { border-left-color: #ff3d6e; border-color: rgba(255,61,110,0.4); }
+    .receipt.proposed { border-left-color: #00c8d4; }
+    .receipt .top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .receipt pre.meta {
+      margin: 0;
+      padding: 0;
+      border: none;
+      background: transparent;
+      box-shadow: none;
+      max-height: none;
+      overflow: visible;
+      white-space: pre-wrap;
+      word-break: break-all;
+      font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      color: #d7e6f7;
+    }
+    .receipt .reason {
+      margin-top: 8px;
+      color: #ff6b8a;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    pre.result {
+      white-space: pre-wrap; word-break: break-word;
+      background: rgba(0,0,0,0.5);
+      border: 1px solid rgba(0,246,255,0.15);
+      border-radius: 10px; padding: 10px;
+      max-height: 200px; overflow: auto;
+      font: 11px/1.4 var(--mono); color: #9fd4e8; margin: 8px 0 0;
+      box-shadow: inset 0 0 20px rgba(0,246,255,0.05);
+    }
+
+    .toast-host {
+      position: fixed; top: 16px; right: 16px; z-index: 50;
+      display: flex; flex-direction: column; gap: 8px; max-width: 360px;
+    }
+    .toast {
+      padding: 12px 14px; border-radius: 12px;
+      background: rgba(6,12,24,0.92);
+      border: 1px solid rgba(255,61,110,0.5);
+      box-shadow: 0 8px 28px rgba(0,0,0,0.5), 0 0 24px rgba(255,61,110,0.25);
+      animation: slideIn 0.35s ease;
+      font-size: 13px;
+      backdrop-filter: blur(12px);
+    }
+    .toast.ok { border-color: rgba(57,255,181,0.5); box-shadow: 0 8px 28px rgba(0,0,0,0.5), 0 0 24px rgba(57,255,181,0.25); }
+    .toast .t-title { font-weight: 800; margin-bottom: 2px; letter-spacing: 0.04em; }
+    .toast .t-body { color: var(--muted); font-size: 12px; }
+
+    .span2 { grid-column: 1 / -1; }
+    .watching-label { color: var(--ok); font-family: var(--mono); font-size: 11px; }
+
+    .card.focus-pulse {
+      border-color: rgba(255,43,214,0.75) !important;
+      box-shadow: 0 0 0 2px rgba(255,43,214,0.3), 0 0 40px rgba(255,43,214,0.4), 0 0 60px rgba(0,246,255,0.15) !important;
+      animation: focusPulse 3s ease-in-out infinite;
+    }
+    @keyframes focusPulse {
+      0%, 100% { box-shadow: 0 0 0 1px rgba(255,43,214,0.2), 0 0 12px rgba(255,43,214,0.12); }
+      50% { box-shadow: 0 0 0 2px rgba(0,246,255,0.22), 0 0 18px rgba(0,246,255,0.14); }
+    }
+
+    /* Glitch title hover */
+    .brand:hover h1 {
+      filter: drop-shadow(0 0 6px rgba(0,246,255,0.2));
+    }
+    @keyframes glitch {
+      0% { text-shadow: 2px 0 var(--magenta), -2px 0 var(--cyan); }
+      50% { text-shadow: -2px 0 var(--magenta), 2px 0 var(--cyan); }
+      100% { text-shadow: 2px 0 var(--cyan), -2px 0 var(--magenta); }
+    }
+
+    /* handbook-align */
+    .map-strip {
+      margin: 12px 28px 0;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(0,246,255,0.2);
+      background: rgba(0, 20, 36, 0.55);
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+    .map-strip strong { color: var(--cyan); }
+    .map-strip a { color: var(--cyan); }
+    .map-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-top: 8px;
+    }
+    @media (max-width: 960px) { .map-grid { grid-template-columns: 1fr 1fr; } }
+    .map-item {
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: rgba(0,0,0,0.35);
+      border: 1px solid rgba(0,246,255,0.12);
+    }
+    .map-item .k { color: var(--cyan); font-size: 11px; font-weight: 700; letter-spacing: 0.04em; }
+    .map-item .v { color: var(--text); margin-top: 4px; font-size: 12px; }
+    .dual {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    @media (max-width: 720px) { .dual { grid-template-columns: 1fr; } }
+    .dual .pane {
+      border-radius: 10px;
+      border: 1px solid rgba(0,246,255,0.18);
+      background: #0a1220;
+      padding: 10px;
+      min-height: 120px;
+    }
+    .dual .pane h4 {
+      margin: 0 0 8px;
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--cyan);
+    }
+    .dual .pane.chain h4 { color: var(--ok); }
+    .dual .pane.deny h4 { color: var(--bad); }
+    .dual pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font: 11px/1.45 var(--mono);
+      color: #d7e6f7;
+      max-height: 180px;
+      overflow: auto;
+    }
+    .tool-perms {
+      margin-top: 10px;
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.5;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px dashed rgba(0,246,255,0.25);
+      background: rgba(0,0,0,0.25);
+    }
+    .tool-perms code { color: var(--cyan); }
   </style>
 </head>
 <body>
-  <header>
-    <div>
-      <h1>KillSwitch Console</h1>
-      <div class="sub">Agent proposes · Contract disposes · Evidence on-chain</div>
+  <canvas id="fx-canvas"></canvas>
+  <div class="bg"></div>
+  <div class="grid"></div>
+  <div class="scanlines" aria-hidden="true"></div>
+  <div class="scan-beam" aria-hidden="true"></div>
+  <div class="vignette" aria-hidden="true"></div>
+  <div class="toast-host" id="toasts"></div>
+
+  <header class="hero">
+    <div class="brand">
+      <div class="logo" aria-hidden="true"></div>
+      <div>
+        <h1>KillSwitch Console</h1>
+        <div class="tagline">Furiosa B · Agent Wallet：Session Key 受限能力 · Policy 机检 · Guard 拒绝也可审计</div>
+      </div>
     </div>
-    <div class="sub" id="status">connecting…</div>
+    <div class="status-strip" id="statusStrip">
+      <span><span class="led" id="led"></span><span id="statusText">connecting…</span></span>
+    </div>
   </header>
+
+  <div class="trust">
+    <div class="step"><span class="num">1</span> Agent proposes / 智能体提议</div>
+    <span class="arrow">→</span>
+    <div class="step"><span class="num">2</span> Contract disposes / 合约裁决</div>
+    <span class="arrow">→</span>
+    <div class="step"><span class="num">3</span> Evidence on-chain / 链上证据</div>
+    <div class="zh">Handbook 对齐：Session Key ≠ 主私钥；Policy 由合约机检；Deny（PaymentDenied）= 成功结果；用户可随时 Freeze 撤销。</div>
+  </div>
+
+  <section class="briefing" aria-label="核心理念">
+    <article class="brief-card">
+      <h3>背景 · Agent Wallet</h3>
+      <p>Agent 开始代付，但不能持有主私钥。需要的是一把<strong>临时、可限制、可撤销</strong>的能力（Session Key），而不是把整把钱包交给模型。</p>
+      <div class="en">Agents can pay — they must not hold the master key. Need a limited, revocable session capability.</div>
+    </article>
+    <article class="brief-card pain">
+      <h3>痛点 · Prompt 不是 Policy</h3>
+      <p>只靠 prompt「别超花」无法强制；越权常无链上拒绝证据；用户也难一键停掉。信任模型 = 资产风险。</p>
+      <div class="en">Prompt-only limits aren't enforceable. No auditable deny. Hard to kill. Trusting the model is asset risk.</div>
+    </article>
+    <article class="brief-card fix">
+      <h3>解法 · Policy + Guard</h3>
+      <p><strong>SessionPolicy</strong> 机检预算 / 白名单 / 期限；Agent 只提议；合约 Guard 执行或 <code>PaymentDenied</code>（拒绝也是成功）；用户可 Freeze。</p>
+      <div class="en">Machine-checkable policy. Agent proposes; contract guards; deny is success; user can freeze.</div>
+    </article>
+  </section>
+
+  <div class="map-strip">
+    <strong>对照 AI × Web3 Handbook</strong>
+    · 赛道标签：钱包与权限 / AI 安全 / Agentic Commerce
+    · 参考：<a href="https://aiweb3.school/zh/handbook/" target="_blank" rel="noopener">aiweb3.school/zh/handbook</a>
+    <div class="map-grid">
+      <div class="map-item"><div class="k">Session Key</div><div class="v">= 本项目 SessionPolicy（预算·白名单·期限）</div></div>
+      <div class="map-item"><div class="k">Policy</div><div class="v">链上可机检条件，不是提示词</div></div>
+      <div class="map-item"><div class="k">Guard</div><div class="v">越权 → PaymentDenied（成功结果）</div></div>
+      <div class="map-item"><div class="k">HITL</div><div class="v">Freeze / Kill 由用户执行，模型不可覆盖</div></div>
+    </div>
+  </div>
+
+  <section class="guide" id="demoGuide">
+    <div class="guide-top">
+      <h3>演示引导 · Handbook 四段对比（正常 / 超限 / 非白名单 / 撤销）</h3>
+      <button type="button" class="primary-cta" id="btnStartDemo">开始 60 秒演示</button>
+    </div>
+    <div class="guide-steps">
+      <button type="button" class="gstep active" data-step="1" id="gstep1">
+        <span class="gs-num">1</span><span class="gs-title">Grant Session Key</span>
+        <span class="gs-sub">额度 · 白名单 · 期限</span>
+      </button>
+      <button type="button" class="gstep" data-step="2" id="gstep2">
+        <span class="gs-num">2</span><span class="gs-title">正常支付</span>
+        <span class="gs-sub">额度内自动提议 → Executed</span>
+      </button>
+      <button type="button" class="gstep" data-step="3" id="gstep3">
+        <span class="gs-num">3</span><span class="gs-title">Guard 拦截</span>
+        <span class="gs-sub">超限 / 非白名单 → Denied=成功</span>
+      </button>
+      <button type="button" class="gstep" data-step="4" id="gstep4">
+        <span class="gs-num">4</span><span class="gs-title">用户撤销</span>
+        <span class="gs-sub">Freeze = 吊销 Session Key</span>
+      </button>
+    </div>
+    <div class="coach" id="coachText"><strong>下一步：</strong>在 Policy 面板点击「Grant session」，授予 Agent 有限花费权（不是无限信任）。</div>
+  </section>
+
+  <div class="meaning" id="meaningLine"></div>
+
   <main>
-    <section class="card">
-      <h2>Session</h2>
+    <!-- POLICY -->
+    <section class="card" id="panelPolicy">
+      <h2>Policy 策略 <span class="hint">budget · deadline · merchants</span></h2>
+      <p class="panel-caption">你在看什么：<strong>Session Key / Policy</strong>——预算、商户白名单、期限。这是可机检的链上条件，不是 prompt。</p>
+      <div class="badges" id="policyBadges"></div>
       <div class="row">
+        <div>
+          <label>Session ID</label>
+          <select id="sessionId"></select>
+        </div>
+        <div>
+          <label>或手动输入</label>
+          <input id="sessionIdManual" type="number" value="0" min="0" />
+        </div>
+      </div>
+      <div class="metrics" id="metrics">
+        <div class="metric"><div class="k">Budget</div><div class="v" id="mBudget">—</div></div>
+        <div class="metric"><div class="k">Spent</div><div class="v" id="mSpent">—</div></div>
+        <div class="metric"><div class="k">Remaining</div><div class="v" id="mRemain">—</div></div>
+      </div>
+      <label>Budget remaining</label>
+      <div class="bar-wrap"><div class="bar" id="budgetBar"></div></div>
+      <div class="row" style="margin-top:12px">
+        <div>
+          <label>Deadline countdown</label>
+          <div class="countdown" id="countdown">—</div>
+        </div>
         <div>
           <label>Contract</label>
           <input id="contract" readonly />
         </div>
-        <div>
-          <label>Session ID</label>
-          <input id="sessionId" type="number" value="0" />
-        </div>
+      </div>
+      <label>Merchants allowlist</label>
+      <div class="chips" id="merchantChips"></div>
+      <div class="fee-note">
+        <strong>Fee 模型：</strong>预算检查使用 <code>amount + 2% fee</code>
+        （合约公式 <code>(amount * 2) / 100</code>）。Spent 已含手续费。
       </div>
       <div class="actions">
-        <button class="ghost" id="btnRefresh">Refresh policy</button>
-        <button class="danger" id="btnFreeze">Freeze</button>
+        <button class="ghost" id="btnRefresh">Refresh</button>
+        <button class="danger" id="btnFreeze">Freeze (Kill)</button>
       </div>
-      <label>Policy</label>
-      <pre id="policy">—</pre>
-      <h2 style="margin-top:18px">Grant new session</h2>
+
+      <h2 style="margin-top:20px">Grant session 授权</h2>
       <div class="row">
         <div>
           <label>Budget (ETH)</label>
@@ -70,92 +902,565 @@
         </div>
       </div>
       <label>Merchants (comma-separated)</label>
-      <input id="merchants" value="0x70997970C51812dc3A010C7d01b50e0d17dc79C8" />
+      <input id="merchants" value="0x70997970C51812dc3A010C7d01b50e0d17dc79C8,0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266" />
       <div class="actions">
-        <button id="btnGrant">Grant session</button>
+        <button class="ok-btn" id="btnGrant">Grant session</button>
       </div>
     </section>
 
-    <section class="card">
-      <h2>Agent propose</h2>
-      <label>User intent</label>
+    <!-- AGENT -->
+    <section class="card" id="panelAgent">
+      <h2>Agent 智能体 <span class="hint">propose · boundary demos</span></h2>
+      <p class="panel-caption">你在看什么：<strong>Web3 Tool Use</strong>——模型只能 propose；执行/拒绝由合约 Guard。下方双栏对比「模型说了什么 / 合约判了什么」。</p>
+      <label>User intent 意图</label>
       <textarea id="intent">Buy coffee for 0.03 ETH</textarea>
       <div class="actions">
-        <button id="btnPropose">Propose via Kiln mock/agent</button>
-        <button class="ghost" id="btnEvents">Load receipts</button>
+        <button id="btnPropose">Propose</button>
+        <button class="ghost" id="btnLoadReceipts">Load receipts</button>
       </div>
-      <label>Result</label>
-      <pre id="result">—</pre>
-      <label>Receipt / audit trail</label>
-      <div id="events"></div>
+      <label style="margin-top:14px">Force boundary demos（对抗路径 — deny = success）</label>
+      <div class="actions">
+        <button class="danger" id="btnBudget">Over-budget</button>
+        <button class="danger" id="btnMerchant">Off-allowlist</button>
+      </div>
+      <div class="fee-note">
+        Over-budget：新建 0.1 ETH session，强制 0.099 ETH（+2% = 0.10098 &gt; budget）。
+        Off-allowlist：强制支付到未授权 merchant。合约发出 <code>PaymentDenied</code>。
+      </div>
+      <div class="tool-perms">
+        <strong>工具权限分层</strong>：查询 Policy（自动）· Propose 支付（受 Session 约束）· Freeze（仅 owner / HITL）。
+        <br/><strong>Privacy</strong>：注入模型的上下文仅为当前 session 策略摘要（预算/白名单/期限），非整本钱包历史。
+      </div>
+      <label>Last result（原始 JSON）</label>
+      <pre class="result" id="result">—</pre>
+      <div class="dual" id="dualEvidence">
+        <div class="pane" id="paneLlm">
+          <h4>模型提议 · LLM Proposal</h4>
+          <pre id="llmPane">等待 Propose / Boundary…</pre>
+        </div>
+        <div class="pane chain" id="paneChainDecision">
+          <h4>合约裁决 · Guard Outcome</h4>
+          <pre id="chainPane">等待链上 Executed / Denied…</pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- CHAIN -->
+    <section class="card span2" id="panelChain">
+      <h2>
+        Chain 链上证据
+        <span class="hint" id="watchHint">receipts · PaymentExecuted / PaymentDenied</span>
+        <span class="watching-label" id="watchingLabel" hidden><span class="led ok live"></span> Watching</span>
+      </h2>
+      <p class="panel-caption">你在看什么：<strong>可验证记录</strong>——Executed / Denied 事件可复原授权。Denied 同样是证据（Verifiable outcome）。</p>
+      <div class="actions" style="margin-top:0; margin-bottom:12px">
+        <button class="ok-btn" id="btnWatch">Watch (poll)</button>
+        <button class="ghost" id="btnStopWatch">Stop watch</button>
+        <button class="ghost" id="btnLoadReceipts2">Load receipts</button>
+      </div>
+      <div id="receipts"><div class="tagline">No events yet — propose or run a boundary demo</div></div>
     </section>
   </main>
+
   <script>
     const $ = (id) => document.getElementById(id);
-    async function api(path, opts) {
-      const res = await fetch(path, {
-        headers: { 'Content-Type': 'application/json' },
-        ...opts,
+    let watchTimer = null;
+    let countdownTimer = null;
+    let lastDeadline = 0;
+    let knownEventKeys = new Set();
+
+
+    function renderDualEvidence(data) {
+      const llmEl = $('llmPane');
+      const chainEl = $('chainPane');
+      const pane = $('paneChainDecision');
+      if (!llmEl || !chainEl) return;
+      const proposal = data?.proposal || data?.result?.proposal || null;
+      const events = data?.events || data?.result?.events || [];
+      const denied = events.find(e => e.type === 'denied' || e.type === 'PaymentDenied');
+      const executed = events.find(e => e.type === 'executed' || e.type === 'PaymentExecuted');
+      const proposed = events.find(e => e.type === 'proposed');
+      if (proposal) {
+        llmEl.textContent = JSON.stringify({
+          merchant: proposal.merchant,
+          amount: proposal.amount ?? proposal.amountEth,
+          description: proposal.description,
+          reasoning: proposal.reasoning,
+        }, null, 2);
+      } else if (data?.forceMerchant || data?.result) {
+        llmEl.textContent = JSON.stringify({
+          note: 'adversarial / forced submit (Guard demo)',
+          forceMerchant: data.forceMerchant,
+          forceAmountEth: data.forceAmountEth,
+          sessionId: data.sessionId,
+        }, null, 2);
+      } else {
+        llmEl.textContent = JSON.stringify(data, null, 2).slice(0, 1200);
+      }
+      if (denied) {
+        pane.className = 'pane deny';
+        chainEl.textContent = JSON.stringify({
+          outcome: 'PaymentDenied (SUCCESS for security demo)',
+          reason: denied.reason || denied.args?.reason,
+          merchant: denied.merchant,
+          amount: denied.amount ?? denied.amountEth,
+          tx: denied.transactionHash,
+        }, null, 2);
+      } else if (executed) {
+        pane.className = 'pane chain';
+        chainEl.textContent = JSON.stringify({
+          outcome: 'PaymentExecuted',
+          merchant: executed.merchant,
+          amount: executed.amount ?? executed.amountEth,
+          fee: executed.fee ?? executed.feeEth,
+          tx: executed.transactionHash,
+        }, null, 2);
+      } else if (proposed) {
+        pane.className = 'pane chain';
+        chainEl.textContent = JSON.stringify({
+          outcome: 'PaymentProposed (awaiting / paired with execute-or-deny)',
+          merchant: proposed.merchant,
+          tx: proposed.transactionHash,
+        }, null, 2);
+      } else if (data?.error) {
+        pane.className = 'pane deny';
+        chainEl.textContent = JSON.stringify({ outcome: 'error', error: data.error }, null, 2);
+      } else {
+        chainEl.textContent = '无链上事件 — 检查 session / RPC';
+      }
+    }
+
+    // --- Guided demo / narrative ---
+    const COACH = {
+      1: '<strong>下一步：</strong>Grant Session Key——设额度 / 白名单 / 期限。这是受限能力，不是主私钥。',
+      2: '<strong>下一步：</strong>正常路径——点 Propose。额度内应由 Guard 放行并留下 <code>PaymentExecuted</code>。',
+      3: '<strong>关键演示（Guard）：</strong>点 Over-budget 或 Off-allowlist。<code>PaymentDenied</code> <em>就是成功</em>——即使模型被诱导越权，合约仍拒绝。',
+      4: '<strong>下一步（HITL）：</strong>Freeze = 吊销 Session Key。用户主权开关，模型无法覆盖。',
+    };
+    let guideStep = 1;
+    const doneSteps = new Set();
+
+    function setMeaning(text, denied = false) {
+      const el = $('meaningLine');
+      if (!text) { el.className = 'meaning'; el.textContent = ''; return; }
+      el.className = 'meaning show' + (denied ? ' denied' : '');
+      el.textContent = text;
+    }
+
+    function clearFocus() {
+      ['panelPolicy','panelAgent','panelChain'].forEach(id => $(id)?.classList.remove('focus-pulse'));
+    }
+
+    function focusPanels(ids) {
+      clearFocus();
+      ids.forEach(id => $(id)?.classList.add('focus-pulse'));
+      const first = $(ids[0]);
+      if (first) first.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    function markDone(n) {
+      doneSteps.add(n);
+      const el = $('gstep' + n);
+      if (el) el.classList.add('done');
+    }
+
+    function setGuideStep(n, { scroll = true } = {}) {
+      guideStep = n;
+      document.querySelectorAll('.gstep').forEach(b => {
+        b.classList.toggle('active', Number(b.dataset.step) === n);
       });
+      $('coachText').innerHTML = COACH[n] || '';
+      if (n === 1) focusPanels(['panelPolicy']);
+      else if (n === 2) focusPanels(['panelAgent']);
+      else if (n === 3) focusPanels(['panelAgent','panelChain']);
+      else if (n === 4) focusPanels(['panelPolicy']);
+      if (!scroll) clearFocus();
+    }
+
+    document.querySelectorAll('.gstep').forEach(btn => {
+      btn.addEventListener('click', () => setGuideStep(Number(btn.dataset.step)));
+    });
+    $('btnStartDemo').onclick = () => {
+      setGuideStep(1);
+      toast('60 秒演示', '从 Grant 开始：授权 → 正常支付 → 越权拒绝 → Freeze', true);
+    };
+
+
+    function toast(title, body, ok = false) {
+      const el = document.createElement('div');
+      el.className = 'toast' + (ok ? ' ok' : '');
+      el.innerHTML = `<div class="t-title">${title}</div><div class="t-body">${body || ''}</div>`;
+      $('toasts').appendChild(el);
+      setTimeout(() => el.remove(), 5200);
+    }
+
+    async function api(path, opts) {
+      let res;
+      try {
+        res = await fetch(path, {
+          headers: { 'Content-Type': 'application/json' },
+          ...opts,
+        });
+      } catch (e) {
+        const tip = '控制台服务可能未启动。在项目根目录运行: node apps/console/server.mjs  或 ./demos/demo-up.sh';
+        toast('无法连接控制台', (e.message || 'failed to fetch') + ' — ' + tip);
+        throw new Error((e.message || 'failed to fetch') + '\n' + tip);
+      }
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || res.statusText);
+      if (!res.ok) {
+        const msg = data.error || res.statusText;
+        toast('Error', msg);
+        throw new Error(msg);
+      }
       return data;
     }
-    function renderEvents(events) {
-      const box = $('events');
-      if (!events?.length) { box.innerHTML = '<div class="sub">No events</div>'; return; }
-      box.innerHTML = events.map(e => {
-        const cls = e.type === 'executed' ? 'ok' : 'bad';
-        return `<div class="logline"><span class="pill ${cls}">${e.type}</span> session ${e.sessionId} · ${e.merchant}<br/>amount ${e.amount}${e.reason ? ' · ' + e.reason : ''}<br/><span class="sub">${e.transactionHash || ''}</span></div>`;
+
+    function sid() {
+      const manual = $('sessionIdManual').value;
+      if (manual !== '' && document.activeElement === $('sessionIdManual')) {
+        return Number(manual);
+      }
+      const sel = $('sessionId').value;
+      return Number(sel !== '' ? sel : (manual || 0));
+    }
+
+    function setSid(n) {
+      $('sessionIdManual').value = n;
+      const opt = [...$('sessionId').options].find(o => o.value === String(n));
+      if (opt) $('sessionId').value = String(n);
+      else {
+        const o = document.createElement('option');
+        o.value = String(n);
+        o.textContent = `session ${n}`;
+        $('sessionId').prepend(o);
+        $('sessionId').value = String(n);
+      }
+    }
+
+    function fmtEth(v) {
+      const n = Number(v);
+      if (!Number.isFinite(n)) return v;
+      return n.toFixed(6).replace(/\.?0+$/, '') + ' ETH';
+    }
+
+    function renderPolicy(data) {
+      const p = data.policy;
+      $('contract').value = data.contractAddress || '';
+      $('mBudget').textContent = fmtEth(p.budgetEth);
+      $('mSpent').textContent = fmtEth(p.spentEth);
+      $('mRemain').textContent = fmtEth(p.remainingEth);
+      $('budgetBar').style.width = Math.max(0, Math.min(100, p.remainingPct)) + '%';
+
+      const badges = [];
+      if (p.frozen) badges.push('<span class="pill bad">FROZEN</span>');
+      else if (p.active) badges.push('<span class="pill ok">ACTIVE</span>');
+      else badges.push('<span class="pill">CLOSED</span>');
+      badges.push(`<span class="pill cyan">spent ${p.spentPct?.toFixed?.(1) ?? p.spentPct}%</span>`);
+      badges.push(`<span class="pill mag">fee = amount + 2%</span>`);
+      $('policyBadges').innerHTML = badges.join('');
+
+      $('merchantChips').innerHTML = (p.merchants || []).map(m =>
+        `<span class="chip" title="${m}">${m.slice(0, 8)}…${m.slice(-4)}</span>`
+      ).join('') || '<span class="tagline">none</span>';
+
+      lastDeadline = p.deadline;
+      tickCountdown();
+    }
+
+    function tickCountdown() {
+      if (!lastDeadline) { $('countdown').textContent = '—'; return; }
+      const left = Math.max(0, lastDeadline - Math.floor(Date.now() / 1000));
+      const h = Math.floor(left / 3600);
+      const m = Math.floor((left % 3600) / 60);
+      const s = left % 60;
+      $('countdown').textContent = `${h}h ${String(m).padStart(2,'0')}m ${String(s).padStart(2,'0')}s`;
+    }
+
+    function eventKey(e) {
+      return `${e.type}:${e.transactionHash}:${e.blockNumber}:${e.merchant}:${e.amount}`;
+    }
+
+    function renderReceipts(events, { flashNew = false } = {}) {
+      const box = $('receipts');
+      if (!events?.length) {
+        box.innerHTML = '<div class="tagline">No events</div>';
+        knownEventKeys = new Set();
+        return;
+      }
+      const nextKeys = new Set(events.map(eventKey));
+      const esc = (s) => String(s ?? '—')
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      box.innerHTML = events.slice().reverse().map(e => {
+        const amt = e.amountEth ?? e.amount ?? '—';
+        const fee = e.feeEth ?? '—';
+        const total = e.totalCostEth ?? '—';
+        const lines = [
+          `merchant  ${e.merchant || '—'}`,
+          `amount    ${amt} ETH`,
+          `fee       ${fee} ETH (${e.feePercent || '2%'})`,
+          `total     ${total} ETH`,
+          `block     ${e.blockNumber ?? '—'}`,
+          `tx        ${e.transactionHash || '—'}`,
+        ];
+        if (e.receiptHash) lines.push(`receipt   ${e.receiptHash}`);
+        if (e.description) lines.push(`desc      ${e.description}`);
+        const pillCls = e.type === 'executed' ? 'ok' : e.type === 'denied' ? 'bad' : 'cyan';
+        return `<div class="receipt ${esc(e.type)}">
+          <div class="top">
+            <span class="pill ${pillCls}">${esc(e.type)}</span>
+            <span class="pill">session ${esc(e.sessionId)}</span>
+          </div>
+          <pre class="meta">${esc(lines.join('\n'))}</pre>
+          ${e.reason ? `<div class="reason">reason: ${esc(e.reason)}</div>` : ''}
+        </div>`;
       }).join('');
+      knownEventKeys = nextKeys;
+      const latest = events[events.length - 1];
+      if (latest?.type === 'denied') {
+        setMeaning('合约拒绝了越权支付 — 边界在链上强制，不在 prompt。PaymentDenied 是成功结果。', true);
+      } else if (latest?.type === 'executed') {
+        setMeaning('支付已执行 — 仍在预算与白名单内。链上留下可审计收据。', false);
+      } else if (latest?.type === 'proposed') {
+        setMeaning('Agent 已提议，等待合约裁决（Executed 或 Denied）。', false);
+      }
     }
-    async function refresh() {
-      const sid = Number($('sessionId').value || 0);
-      const data = await api(`/api/policy?sessionId=${sid}`);
-      $('contract').value = data.contractAddress;
-      $('policy').textContent = JSON.stringify(data.policy, null, 2);
-      $('status').textContent = `rpc ${data.rpcUrl} · ${data.provider||'llm'}:${data.model||''} · mock=${data.mockMode}`;
+
+    async function refreshSessions() {
+      try {
+        const data = await api('/api/sessions');
+        const sel = $('sessionId');
+        const cur = sel.value || $('sessionIdManual').value || '0';
+        sel.innerHTML = (data.sessions || []).map(id =>
+          `<option value="${id}">session ${id}</option>`
+        ).join('') || '<option value="0">session 0</option>';
+        if ([...sel.options].some(o => o.value === String(cur))) sel.value = String(cur);
+        else if (data.sessions?.length) {
+          sel.value = String(data.sessions[0]);
+          $('sessionIdManual').value = data.sessions[0];
+        }
+      } catch (_) { /* health will toast */ }
     }
-    $('btnRefresh').onclick = () => refresh().catch(e => $('policy').textContent = e.message);
+
+    async function refreshHealth() {
+      try {
+        const h = await api('/api/health');
+        const led = $('led');
+        led.className = 'led ' + (h.ok ? 'ok' : 'bad');
+        const parts = [
+          h.rpcOk ? 'RPC up' : 'RPC down',
+          h.contractConfigured ? 'contract set' : 'CONTRACT_ADDRESS missing',
+          `${h.llm?.provider || '?'}:${h.llm?.model || ''}`,
+          h.llm?.mockMode ? 'mock' : 'live-llm',
+          h.feeModel || '',
+        ];
+        $('statusText').textContent = parts.join(' · ');
+        if (!h.rpcOk) toast('RPC down', `Cannot reach ${h.rpcUrl}`);
+        if (!h.contractConfigured) toast('Missing CONTRACT_ADDRESS', 'Run demos/demo-up.sh or demos/setup.sh');
+        return h;
+      } catch (e) {
+        $('led').className = 'led bad';
+        $('statusText').textContent = e.message;
+      }
+    }
+
+    async function refreshPolicy() {
+      const data = await api(`/api/policy?sessionId=${sid()}`);
+      renderPolicy(data);
+      return data;
+    }
+
+    async function loadEvents(flashNew = false) {
+      const ev = await api(`/api/events?sessionId=${sid()}`);
+      renderReceipts(ev.events, { flashNew });
+      return ev;
+    }
+
+    $('sessionId').onchange = () => {
+      $('sessionIdManual').value = $('sessionId').value;
+      refreshPolicy().catch(() => {});
+      loadEvents().catch(() => {});
+    };
+    $('sessionIdManual').onchange = () => {
+      setSid(Number($('sessionIdManual').value || 0));
+      refreshPolicy().catch(() => {});
+    };
+
+    $('btnRefresh').onclick = () => {
+      Promise.all([refreshHealth(), refreshSessions(), refreshPolicy(), loadEvents()])
+        .catch(e => $('result').textContent = e.message);
+    };
     $('btnFreeze').onclick = async () => {
       try {
-        const sid = Number($('sessionId').value || 0);
-        const data = await api('/api/freeze', { method:'POST', body: JSON.stringify({ sessionId: sid }) });
+        const data = await api('/api/freeze', { method: 'POST', body: JSON.stringify({ sessionId: sid() }) });
         $('result').textContent = JSON.stringify(data, null, 2);
-        await refresh();
+        toast('Frozen', data.transactionHash, true);
+        setMeaning('会话已冻结：用户紧急停止生效，Agent 无法再推进支付。');
+        markDone(4);
+        clearFocus();
+        await refreshPolicy();
       } catch (e) { $('result').textContent = e.message; }
     };
     $('btnGrant').onclick = async () => {
       try {
         const merchants = $('merchants').value.split(',').map(s => s.trim()).filter(Boolean);
-        const data = await api('/api/grant', { method:'POST', body: JSON.stringify({
-          budgetEth: $('budget').value,
-          durationSec: Number($('duration').value),
-          merchants,
-        })});
-        $('sessionId').value = data.sessionId;
+        const data = await api('/api/grant', {
+          method: 'POST',
+          body: JSON.stringify({
+            budgetEth: $('budget').value,
+            durationSec: Number($('duration').value),
+            merchants,
+          }),
+        });
+        setSid(data.sessionId);
         $('result').textContent = JSON.stringify(data, null, 2);
-        await refresh();
+        toast('Session granted', `sessionId=${data.sessionId}`, true);
+        setMeaning('会话已授权：Agent 只能在预算 / 白名单 / 期限内提议。');
+        markDone(1);
+        setGuideStep(2);
+        await refreshSessions();
+        await refreshPolicy();
       } catch (e) { $('result').textContent = e.message; }
     };
     $('btnPropose').onclick = async () => {
       try {
-        const sid = Number($('sessionId').value || 0);
-        const data = await api('/api/propose', { method:'POST', body: JSON.stringify({ sessionId: sid, intent: $('intent').value })});
+        $('btnPropose').disabled = true;
+        const data = await api('/api/propose', {
+          method: 'POST',
+          body: JSON.stringify({ sessionId: sid(), intent: $('intent').value }),
+        });
         $('result').textContent = JSON.stringify(data, null, 2);
-        await refresh();
-        const ev = await api(`/api/events?sessionId=${sid}`);
-        renderEvents(ev.events);
-      } catch (e) { $('result').textContent = e.message; }
+        renderDualEvidence(data);
+        const denied = data.events?.find(e => e.type === 'denied');
+        const executed = data.events?.find(e => e.type === 'executed');
+        if (denied) {
+          toast('PaymentDenied', denied.reason || 'denied (success outcome)', true);
+          markDone(3);
+          setGuideStep(4);
+        } else if (executed) {
+          toast('PaymentExecuted', `${executed.amount} ETH + fee ${executed.fee || ''}`, true);
+          markDone(2);
+          setGuideStep(3);
+        }
+        await refreshPolicy();
+        await loadEvents(true);
+      } catch (e) {
+        $('result').textContent = e.message;
+        toast('LLM / Propose failed', e.message);
+      } finally {
+        $('btnPropose').disabled = false;
+      }
     };
-    $('btnEvents').onclick = async () => {
+
+    async function boundary(caseName) {
       try {
-        const sid = Number($('sessionId').value || 0);
-        const ev = await api(`/api/events?sessionId=${sid}`);
-        renderEvents(ev.events);
-      } catch (e) { $('events').textContent = e.message; }
+        const data = await api('/api/demo/boundary', {
+          method: 'POST',
+          body: JSON.stringify({ case: caseName }),
+        });
+        setSid(data.sessionId);
+        $('result').textContent = JSON.stringify(data, null, 2);
+        renderDualEvidence(data);
+        const reason = data.result?.events?.find(e => e.type === 'denied')?.reason || 'denied';
+        toast(`Boundary ${caseName}`, `${reason} · deny = success`, true);
+        setMeaning('越权被合约拒绝 — 这正是产品要证明的：不信任模型，信任代码与链上证据。', true);
+        markDone(3);
+        setGuideStep(4);
+        await refreshSessions();
+        await refreshPolicy();
+        await loadEvents(true);
+      } catch (e) { $('result').textContent = e.message; }
+    }
+    $('btnBudget').onclick = () => boundary('budget');
+    $('btnMerchant').onclick = () => boundary('merchant');
+
+    const loadR = () => loadEvents(true).catch(e => toast('Events', e.message));
+    $('btnLoadReceipts').onclick = loadR;
+    $('btnLoadReceipts2').onclick = loadR;
+
+    $('btnWatch').onclick = () => {
+      if (watchTimer) return;
+      $('watchingLabel').hidden = false;
+      $('led').classList.add('live');
+      watchTimer = setInterval(() => {
+        loadEvents(true).catch(() => {});
+        refreshPolicy().catch(() => {});
+      }, 2500);
+      toast('Watching', 'Polling receipts every 2.5s', true);
     };
-    refresh().catch(e => $('status').textContent = e.message);
+    $('btnStopWatch').onclick = () => {
+      if (watchTimer) clearInterval(watchTimer);
+      watchTimer = null;
+      $('watchingLabel').hidden = true;
+      $('led').classList.remove('live');
+    };
+
+    countdownTimer = setInterval(tickCountdown, 1000);
+
+    setGuideStep(1, { scroll: false });
+    clearFocus();
+
+    (async () => {
+      await refreshHealth();
+      await refreshSessions();
+      try {
+        await refreshPolicy();
+        await loadEvents();
+      } catch (e) {
+        $('result').textContent = e.message;
+      }
+    })();
+
+    // Cyberpunk particle field
+    (function initFx() {
+      const canvas = document.getElementById('fx-canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      let w = 0, h = 0, particles = [], raf = 0;
+      function resize() {
+        w = canvas.width = window.innerWidth;
+        h = canvas.height = window.innerHeight;
+        const n = Math.min(40, Math.floor((w * h) / 36000));
+        particles = Array.from({ length: n }, () => ({
+          x: Math.random() * w,
+          y: Math.random() * h,
+          vx: (Math.random() - 0.5) * 0.15,
+          vy: (Math.random() - 0.5) * 0.15,
+          r: Math.random() * 1.2 + 0.3,
+          c: Math.random() > 0.55 ? 'rgba(0,246,255,' : (Math.random() > 0.4 ? 'rgba(255,43,214,' : 'rgba(139,92,255,'),
+          a: Math.random() * 0.22 + 0.06,
+        }));
+      }
+      function tick() {
+        ctx.clearRect(0, 0, w, h);
+        for (let i = 0; i < particles.length; i++) {
+          const p = particles[i];
+          p.x += p.vx; p.y += p.vy;
+          if (p.x < 0) p.x = w; if (p.x > w) p.x = 0;
+          if (p.y < 0) p.y = h; if (p.y > h) p.y = 0;
+          ctx.beginPath();
+          ctx.fillStyle = p.c + p.a + ')';
+          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+          ctx.fill();
+          for (let j = i + 1; j < particles.length; j++) {
+            const q = particles[j];
+            const dx = p.x - q.x, dy = p.y - q.y;
+            const d2 = dx * dx + dy * dy;
+            if (d2 < 100 * 100) {
+              const alpha = 0.05 * (1 - Math.sqrt(d2) / 100);
+              ctx.strokeStyle = 'rgba(0,246,255,' + alpha + ')';
+              ctx.beginPath();
+              ctx.moveTo(p.x, p.y);
+              ctx.lineTo(q.x, q.y);
+              ctx.stroke();
+            }
+          }
+        }
+        raf = requestAnimationFrame(tick);
+      }
+      window.addEventListener('resize', resize);
+      resize();
+      tick();
+    })();
   </script>
 </body>
 </html>

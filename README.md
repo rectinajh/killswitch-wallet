@@ -25,6 +25,36 @@ Intended for users who want an LLM agent to buy/pay on their behalf without unbo
 3. **Don't trust the model** — Enforce boundaries in code + on-chain, not in prompts
 4. **Evidence** — Another person with only your records can reconstruct authorization
 
+
+
+## Alignment with AI × Web3 Handbook
+
+KillSwitch maps directly onto the [AI × Web3 School Handbook](https://aiweb3.school/zh/handbook/) **Wallet / Permission** and **Agent Wallet** tracks — the same vocabulary judges and builders use for session keys, policy, and guards.
+
+| Handbook concept | KillSwitch implementation | Demo proof |
+|---|---|---|
+| **Agent Wallet** | Agent never holds the user master key; only proposes under a session | Console Agent panel |
+| **Session Key** | `SessionPolicy`: budget + merchant allowlist + deadline | Grant session |
+| **Policy (machine-checkable)** | On-chain checks (`amount + 2% fee`, allowlist, deadline, frozen) | `forge test` + Anvil |
+| **Guard** | Over-budget / off-allowlist → `PaymentDenied` (**deny = success**) | `demos/agent-boundary.mjs`, console buttons |
+| **Human-in-the-loop** | Owner `freeze()` / Kill — model cannot override | Console Freeze |
+| **Verifiable records** | `PaymentProposed` / `Executed` / `Denied` events | Chain receipts panel |
+| **Web3 Tool Use (layered)** | Read policy (auto) · Propose (session-bound) · Freeze (owner only) | Tool permission note in console |
+| **AI Security** | Even if the LLM is induced to overspend, the contract still denies | Boundary demos |
+| **AI Privacy (minimal)** | Prompt context = current session policy summary only | `agent/src` kiln / proposer prompts |
+| **Account Abstraction (narrative)** | SessionPolicy is a minimal, demoable subset of Smart Account session modules | ARCHITECTURE.md |
+
+**Frontier track tags (for pitch):** Wallet & Permission (primary) · AI Security (secondary) · Agentic Commerce (scenario).
+
+**Canonical Handbook demo contrast (already implemented):**
+1. In-limit payment → `PaymentExecuted`
+2. Over-limit → policy reject
+3. Non-allowlisted merchant → Guard intercept
+4. User revokes session → Agent loses capability
+
+See also: [Agent Wallet (zh)](https://aiweb3.school/zh/handbook/bridge/agent-wallet/) · [Wallet / Permission track](https://aiweb3.school/en/handbook/tracks/wallet-permission/)
+
+
 ## Architecture
 
 ```mermaid
@@ -250,15 +280,58 @@ cp -n .env.example .env   # quote USER_INTENT
 | Declared function & user need | This README § Declared Function |
 | Workflow user → outcome | `demos/` + `apps/console` |
 | Agent task vs code | Table above; contract enforces |
-| Boundaries & stopping (≥2 out-of-scope runs) | `02-budget-exceeded`, `03-merchant-denied`, `04-freeze-session` |
-| Kiln `gpt-oss-120b` | `agent/src/kiln-client.ts` (mock without key; real when `KILN_API_KEY` set); token usage logged per flow |
+| Boundaries & stopping (≥2 out-of-scope runs) | `02`/`03` cast demos + `demos/agent-boundary.mjs` (agent path) + `04-freeze-session` |
+| Kiln `gpt-oss-120b` | Furiosa official via `LLM_PROVIDER=kiln`; local demos may use `LLM_PROVIDER=kimi`. Mock without key. |
 | On-chain tx + hash | Every demo prints tx hash; events `PaymentExecuted` / `PaymentDenied` |
 | Human approve / watch / stop / receipt | Console grant/freeze/events; `scripts/audit-session.sh` |
 | Third-party reconstructability | On-chain policy + event logs only |
 
+## Fee model (budget = amount + 2%)
+
+On-chain in `SessionPolicy.proposeOrPay`:
+
+```solidity
+uint256 fee = (amount * 2) / 100;  // 2%
+uint256 totalCost = amount + fee;  // charged against session budget
+```
+
+Agent helper `feeWei(amount)` / `totalCostWei(amount)` in `agent/src/fees.ts` keeps receipts and UI aligned with the contract (not a bare `"(2%)"` string).
+
+## LLM providers (dual path)
+
+| Context | Provider | Model / env |
+|---------|----------|-------------|
+| **Furiosa official** | Kiln NPU API | `LLM_PROVIDER=kiln`, `KILN_MODEL=gpt-oss-120b` |
+| Local build / demos | Kimi (Moonshot) | `LLM_PROVIDER=kimi`, `KIMI_MODEL=…` |
+
+Never commit real API keys. See [KILN_SETUP.md](KILN_SETUP.md) and `.env.example`.
+
+## Trust boundary
+
+Agent proposes → Contract disposes → Evidence on-chain. **PaymentDenied is a success outcome** (boundary held). Deeper narrative: [ARCHITECTURE.md](ARCHITECTURE.md).
+
+## One-click demo
+
+```bash
+./demos/demo-up.sh          # anvil (if needed) → setup → agent build → console
+./demos/run-all.sh          # cast demos 01–04
+node demos/agent-boundary.mjs all   # TS agent path: over-budget + off-allowlist
+```
+
 ## Web console
 
 ```bash
-node apps/console/server.mjs
+./demos/demo-up.sh
+# or: node apps/console/server.mjs
 # http://127.0.0.1:8787
+```
+
+Cyber/ops UI: Policy / Agent / Chain panels, fee-aware receipts, boundary demo buttons, live Watch.
+
+## Gas / Foundry
+
+```bash
+cd contracts && forge test          # expect 7/7
+# Optional local gas snapshot (commit .gas-snapshot only if you generate it):
+# forge snapshot
 ```

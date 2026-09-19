@@ -132,6 +132,8 @@ contract SessionPolicy {
             return;
         }
 
+        // Fee model: 2% of amount. Budget check uses amount + fee (totalCost).
+        // Agent helpers (feeWei / totalCostWei) must stay in sync with this formula.
         uint256 fee = (amount * 2) / 100; // 2% fee simulation
         uint256 totalCost = amount + fee;
 
