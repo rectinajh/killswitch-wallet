@@ -79,6 +79,47 @@ function getContract(signerOrProvider, contractAddress) {
   return new ethers.Contract(addr, abi, signerOrProvider);
 }
 
+
+/** Local Anvil keeps large demo amounts; public testnets use faucet-sized wei. */
+async function getDemoAmounts(provider) {
+  try {
+    const net = await provider.getNetwork();
+    if (net.chainId === 31337n) {
+      return {
+        local: true,
+        defaultGrant: '1',
+        autoGrant: '0.5',
+        autoProposeIntent: 'Buy coffee for 0.02 ETH',
+        autoProposeAmount: '0.02',
+        boundaryBudget: '0.1',
+        boundaryForce: '0.099',
+        merchantBudget: '1',
+        merchantForce: '0.01',
+        coffeeQuote: '0.02',
+        apiQuote: '0.015',
+        shadowQuote: '0.01',
+      };
+    }
+  } catch (_) {}
+  // Sepolia / other public RPCs — fit ~0.002 ETH faucet leftovers after gas
+  return {
+    local: false,
+    defaultGrant: '0.0008',
+    autoGrant: '0.0008',
+    autoProposeIntent: 'Buy coffee for 0.0003 ETH',
+    autoProposeAmount: '0.0003',
+    // 0.000495 + 2% = 0.0005049 > 0.0005
+    boundaryBudget: '0.0005',
+    boundaryForce: '0.000495',
+    merchantBudget: '0.0005',
+    merchantForce: '0.0001',
+    coffeeQuote: '0.0003',
+    apiQuote: '0.00025',
+    shadowQuote: '0.0001',
+  };
+}
+
+
 function llmMeta() {
   const llmProvider = (process.env.LLM_PROVIDER || 'kimi').toLowerCase();
   const mockMode =
@@ -218,17 +259,12 @@ export async function handler(req, res) {
 
 
     if (req.method === 'GET' && url.pathname === '/api/commerce/catalog') {
-      return send(res, 200, {
-        thesis: 'Agentic Commerce = discover whitelisted merchant → quote → agent propose pay → verifiable on-chain receipt',
-        catalog: COMMERCE_CATALOG,
-        offCatalogExample: {
-          id: 'shadow-shop',
-          name: 'Shadow Shop (NOT allowlisted)',
-          merchant: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC',
-          quoteEth: '0.01',
-          description: 'Should be PaymentDenied — Guard success',
-        },
-      });
+      const amts = await getDemoAmounts(new ethers.JsonRpcProvider(env().rpcUrl));
+      const catalog = COMMERCE_CATALOG.map((item) => ({
+        ...item,
+        quoteEth: item.id === 'coffee-lane' ? amts.coffeeQuote : amts.apiQuote,
+      }));
+      return send(res, 200, { catalog, demoScale: amts.local ? 'anvil' : 'public-testnet' });
     }
 
     if (req.method === 'POST' && url.pathname === '/api/commerce/checkout') {
@@ -242,7 +278,8 @@ export async function handler(req, res) {
       const merchant = off
         ? '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC'
         : (item?.merchant || body.merchant);
-      const amountEth = off ? '0.01' : String(body.amountEth || item.quoteEth);
+      const amts = await getDemoAmounts(new ethers.JsonRpcProvider(RPC_URL));
+      const amountEth = off ? amts.shadowQuote : String(body.amountEth || (item?.id === 'coffee-lane' ? amts.coffeeQuote : (item?.quoteEth || amts.apiQuote)));
       const intent = off
         ? 'Agentic Commerce adversarial: pay Shadow Shop (not allowlisted)'
         : `Agentic Commerce checkout: ${item.name} / ${item.sku} — ${item.description}`;
@@ -303,6 +340,7 @@ export async function handler(req, res) {
         feeModel: `amount + ${feePercentLabel()} (budget checks totalCost)`,
         feeFormula: '(amount * 2) / 100',
         llm,
+        demoAmounts: await getDemoAmounts(new ethers.JsonRpcProvider(RPC_URL)).catch(() => null),
         furiosaPath: {
           officialLlm: 'LLM_PROVIDER=kiln + KILN_MODEL=gpt-oss-120b',
           aaRoadmap: 'docs/AA_SESSION_KEY.md',
@@ -365,7 +403,21 @@ export async function handler(req, res) {
       const provider = new ethers.JsonRpcProvider(RPC_URL);
       const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
       const c = getContract(wallet);
-      const budgetWei = ethers.parseEther(String(body.budgetEth || '1'));
+      const amts = await getDemoAmounts(new ethers.JsonRpcProvider(RPC_URL));
+      const budgetWei = ethers.parseEther(String(body.budgetEth || amts.defaultGrant));
+      // Fail fast with a clear message when faucet balance is too low
+      {
+        const wallet = new ethers.Wallet(PRIVATE_KEY, new ethers.JsonRpcProvider(RPC_URL));
+        const bal = await wallet.provider.getBalance(wallet.address);
+        if (bal < budgetWei) {
+          return send(res, 400, {
+            error: `insufficient funds: wallet has ${ethers.formatEther(bal)} ETH but grant needs ${ethers.formatEther(budgetWei)} ETH (plus gas). Top up Sepolia or use a smaller budgetEth.`,
+            balanceEth: ethers.formatEther(bal),
+            neededEth: ethers.formatEther(budgetWei),
+            suggestedBudgetEth: amts.autoGrant,
+          });
+        }
+      }
       const duration = Number(body.durationSec || 3600);
       const merchants = body.merchants || [];
       const tx = await c.grantSession(budgetWei, duration, merchants, { value: budgetWei });
@@ -419,7 +471,7 @@ export async function handler(req, res) {
       if (body.skipLlm) opts.skipLlm = true;
       const result = await paymentProposer.proposePayment(
         Number(body.sessionId || 0),
-        body.intent || 'Buy coffee for 0.03 ETH',
+        body.intent || (await getDemoAmounts(new ethers.JsonRpcProvider(RPC_URL))).autoProposeIntent,
         opts
       );
       return send(res, 200, result);
@@ -440,18 +492,19 @@ export async function handler(req, res) {
       let allowOffAllowlist;
       let intent;
 
+      const amts = await getDemoAmounts(provider);
       if (which === 'merchant') {
-        budgetEth = '1';
+        budgetEth = amts.merchantBudget;
         merchants = [MERCHANT_OK];
-        forceAmountEth = '0.01';
+        forceAmountEth = amts.merchantForce;
         forceMerchant = MERCHANT_BAD;
         allowOffAllowlist = true;
         intent = 'Boundary demo: off-allowlist merchant';
       } else {
-        // budget: 0.1 ETH; 0.099 + 2% = 0.10098 > 0.1
-        budgetEth = '0.1';
+        // forceAmount + 2% fee must exceed budget (deny = success)
+        budgetEth = amts.boundaryBudget;
         merchants = [MERCHANT_OK];
-        forceAmountEth = '0.099';
+        forceAmountEth = amts.boundaryForce;
         forceMerchant = MERCHANT_OK;
         allowOffAllowlist = false;
         intent = 'Boundary demo: over-budget (amount + 2% fee)';
