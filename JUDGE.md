@@ -1,3 +1,5 @@
+> **录屏分镜：** 见 [`DEMO_SCRIPT.md`](DEMO_SCRIPT.md)（Agentic Commerce 90 秒）。
+
 # KillSwitch Wallet — Judge Path (≈90 seconds)
 
 **Furiosa Challenge B / GWDC 2026 Korea** · Agent spending controls  
