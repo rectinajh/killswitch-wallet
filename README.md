@@ -24,6 +24,26 @@ You want an LLM to buy coffee or settle an API bill while you are offline — wi
 
 **Solution**: Discover → Quote → Session-authorized Checkout → Guard (Executed | Denied) → Credential / Freeze / Close. Details: [`docs/AGENTIC_COMMERCE.md`](docs/AGENTIC_COMMERCE.md) · 90s path: [`JUDGE.md`](JUDGE.md) · [`DEMO_SCRIPT.md`](DEMO_SCRIPT.md).
 
+## Why it matters
+
+Agents that can pay are useful only if spending is **bounded and auditable**. Prompts and “please don’t overspend” are not a control plane: a compromised or confused model will still try. KillSwitch puts the control plane on-chain—**Session Key + Guard**—so merchants and users share the same evidence: who was allowed to pay, under what rules, and whether the chain executed or denied.
+
+**One-liner for pitches:** Agentic Commerce that is safe enough to ship—the model proposes, the contract Guards; next step is real merchant settlement and AA session keys, not another chatbot that can drain a wallet.
+
+## Commercialization & productization
+
+Not a full business plan—direction after the demo loop is proven:
+
+| Horizon | What we sell / ship | KillSwitch today |
+|---------|---------------------|------------------|
+| **Now (control layer)** | Session-bounded agent checkout for teams that already want LLM agents to pay APIs, SaaS, or IRL merchants | Grant → Propose → `Executed` / `PaymentDenied` → Freeze / Close + `CommercePaymentCredential` |
+| **Next (merchant product)** | Allowlist onboarding, quote/SKU catalog, settlement proof merchants can verify without trusting the agent UI | Console commerce funnel + credential; Shadow Shop deny path |
+| **Later (wallet / AA)** | Policy templates, monitoring, and ERC-4337 / Smart Session modules so the same rules ride production account abstraction | [`docs/AA_SESSION_KEY.md`](docs/AA_SESSION_KEY.md) roadmap (`ISessionCapability`) |
+
+**Who pays:** end users (safe delegation), agent platforms (compliance-ready spend rails), and merchants (verifiable machine payment without card-PAN exposure in the agent).
+
+**What we will not productize as the moat:** a bigger LLM prompt. The moat is **machine-checkable policy + deny-as-success evidence**.
+
 ## Cypherpunk Design Principles
 
 1. **Agent proposes; policy contract disposes** — Stopping/deny is a correct recorded outcome
