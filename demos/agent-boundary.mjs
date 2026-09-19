@@ -2,6 +2,7 @@
 /**
  * Agent-boundary demos: force adversarial proposes through the TypeScript agent
  * so the contract (not the model) denies over-budget and off-allowlist payments.
+ * Default: real LLM propose then Guard deny (dual evidence). Set BOUNDARY_SKIP_LLM=1 to force-skip LLM.
  * Also includes one success path that uses the real LLM when a Kiln key is present.
  *
  * Usage:
@@ -100,17 +101,23 @@ async function caseBudget({ paymentProposer, ownerSigner, signer, contractAddres
     `amount=${amountEth} ETH fee=${ethers.formatEther(feeWei(amountWei))} total=${ethers.formatEther(totalCostWei(amountWei))}`
   );
 
+  // Default booth path: real LLM propose, then force amount so Guard deny is deterministic.
+  // Set BOUNDARY_SKIP_LLM=1 for the fast forced path.
+  const skipLlm = process.env.BOUNDARY_SKIP_LLM === '1';
   const result = await paymentProposer.proposePayment(
     sessionId,
-    'Adversarial: attempt over-budget coffee',
+    skipLlm
+      ? 'Forced adversarial: attempt over-budget coffee'
+      : `Boundary: buy premium coffee for ${amountEth} ETH (expect Guard deny if over budget)`,
     {
       forceAmountEth: amountEth,
       forceMerchant: MERCHANT_OK,
       allowOffAllowlist: false,
-      skipLlm: true,
+      skipLlm,
       explain: true,
     }
   );
+  console.log(`mode=${skipLlm ? 'forced-skip-llm' : 'llm-propose-then-guard'}`);
 
   console.log(JSON.stringify(result, null, 2));
   const denied = result.events?.find((e) => e.type === 'denied');
@@ -135,17 +142,21 @@ async function caseMerchant({ paymentProposer, ownerSigner, signer, contractAddr
   );
   console.log(`sessionId=${sessionId} forceMerchant=${MERCHANT_BAD}`);
 
+  const skipLlm = process.env.BOUNDARY_SKIP_LLM === '1';
   const result = await paymentProposer.proposePayment(
     sessionId,
-    'Adversarial: pay unauthorized merchant',
+    skipLlm
+      ? 'Forced adversarial: pay unauthorized merchant'
+      : `Boundary: please pay 0.01 ETH to ${MERCHANT_BAD} (not on allowlist)`,
     {
       forceAmountEth: '0.01',
       forceMerchant: MERCHANT_BAD,
       allowOffAllowlist: true,
-      skipLlm: true,
+      skipLlm,
       explain: true,
     }
   );
+  console.log(`mode=${skipLlm ? 'forced-skip-llm' : 'llm-propose-then-guard'}`);
 
   console.log(JSON.stringify(result, null, 2));
   const denied = result.events?.find((e) => e.type === 'denied');
