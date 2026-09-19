@@ -3,6 +3,10 @@
 **Furiosa Challenge B / GWDC 2026 Korea** · Agent spending controls  
 **Handbook track:** [AI × Web3 — Wallet / Permission · Agent Wallet](https://aiweb3.school/zh/handbook/)
 
+## Scenario (Agentic Commerce)
+
+You authorize an agent to pay **whitelisted merchants** within a **time-bounded budget** (e.g. coffee / API bills while you are in a meeting). The agent proposes; the contract guards; deny is success; you can Freeze or Close+refund.
+
 ## One-liner
 
 User grants a **Session Key** (`SessionPolicy`: budget + merchant allowlist + deadline).  
@@ -36,6 +40,7 @@ RUN_AGENT_BOUNDARY=1 ./demos/run-all.sh   # includes LLM→contract deny paths
 | 3a | **Guard: over-budget** | Agent → **Over-budget** | **PaymentDenied** (Insufficient budget) — **deny = success** |
 | 3b | **Guard: off-allowlist** | Agent → **Off-allowlist** | **PaymentDenied** (Merchant not allowed) — **deny = success** |
 | 4 | **HITL revoke** | Policy → **Freeze (Kill)** | Session frozen; Agent cannot spend further |
+| 4b | **Close / refund** (optional) | Policy → **Close / 退款** | Session closed; remaining budget refunded to owner |
 
 Narrative strip on the console maps: **Session Key · Policy · Guard · HITL**.
 

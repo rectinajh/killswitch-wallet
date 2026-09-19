@@ -728,6 +728,66 @@
       background: rgba(0,0,0,0.25);
     }
     .tool-perms code { color: var(--cyan); }
+
+    .scenario {
+      margin: 14px 28px 0;
+      padding: 14px 16px;
+      border-radius: 16px;
+      border: 1px solid rgba(0,246,255,0.22);
+      background: linear-gradient(135deg, rgba(0,40,50,0.45), rgba(20,10,40,0.4));
+    }
+    .scenario h3 {
+      margin: 0 0 8px;
+      font-size: 12px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--cyan);
+    }
+    .scenario .pitch {
+      margin: 0 0 10px;
+      font-size: 14px;
+      line-height: 1.55;
+      color: var(--text);
+    }
+    .scenario .roles {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin: 10px 0;
+    }
+    @media (max-width: 960px) { .scenario .roles { grid-template-columns: 1fr 1fr; } }
+    .scenario .role {
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: rgba(0,0,0,0.35);
+      border: 1px solid rgba(0,246,255,0.15);
+      font-size: 12px;
+    }
+    .scenario .role .rk { color: var(--cyan); font-weight: 700; font-size: 11px; letter-spacing: 0.06em; }
+    .scenario .role .rv { color: var(--muted); margin-top: 4px; line-height: 1.4; }
+    .scenario .flow {
+      margin: 8px 0 0;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+    .scenario .flow strong { color: var(--text); }
+    .bridge-grid {
+      margin: 12px 28px 0;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+    @media (max-width: 1100px) { .bridge-grid { grid-template-columns: 1fr 1fr; } }
+    .bridge-item {
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(0,246,255,0.14);
+      background: rgba(0,0,0,0.3);
+      font-size: 12px;
+    }
+    .bridge-item .bk { color: var(--magenta); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+    .bridge-item .bv { color: var(--muted); margin-top: 4px; line-height: 1.45; }
   </style>
 </head>
 <body>
@@ -764,7 +824,7 @@
   <section class="briefing" aria-label="核心理念">
     <article class="brief-card">
       <h3>背景 · Agent Wallet</h3>
-      <p>Agent 开始代付，但不能持有主私钥。需要的是一把<strong>临时、可限制、可撤销</strong>的能力（Session Key），而不是把整把钱包交给模型。</p>
+      <p>智能体商业里，Agent 要替你向商家付款，但不能持有主私钥。你只授予一把<strong>临时、可限制、可撤销</strong>的 Session Key。</p>
       <div class="en">Agents can pay — they must not hold the master key. Need a limited, revocable session capability.</div>
     </article>
     <article class="brief-card pain">
@@ -774,15 +834,49 @@
     </article>
     <article class="brief-card fix">
       <h3>解法 · Policy + Guard</h3>
-      <p><strong>SessionPolicy</strong> 机检预算 / 白名单 / 期限；Agent 只提议；合约 Guard 执行或 <code>PaymentDenied</code>（拒绝也是成功）；用户可 Freeze。</p>
+      <p><strong>SessionPolicy</strong> 机检预算 / 白名单 / 期限；Agent 只提议代付；Guard 放行或 <code>PaymentDenied</code>；你可 Freeze 停权或 Close 退款。</p>
       <div class="en">Machine-checkable policy. Agent proposes; contract guards; deny is success; user can freeze.</div>
     </article>
   </section>
 
+  <section class="scenario" id="commerceScene" aria-label="Agentic Commerce 情景">
+    <h3>情景 · Agentic Commerce（智能体商业）</h3>
+    <p class="pitch">
+      你要出门开会，授权 KillSwitch 让 Agent 在 <strong>1 小时内</strong>用最多 <strong>0.5 ETH</strong>
+      只向白名单商家代付（咖啡店 / API 账单）。Agent 可以下单提议，但不能拿你的主私钥；
+      超额或付给未知地址必须被合约拒绝并留证；你随时 Freeze 或 Close 退回剩余预算。
+    </p>
+    <div class="roles">
+      <div class="role"><div class="rk">你 · Owner</div><div class="rv">Grant 额度与白名单；Freeze / Close = 主权开关</div></div>
+      <div class="role"><div class="rk">Agent · 代付员</div><div class="rv">只读当前 Session Policy，再 Propose；不能直接转账</div></div>
+      <div class="role"><div class="rk">白名单商家</div><div class="rv">唯一可收款地址；链下服务，链上结算凭证</div></div>
+      <div class="role"><div class="rk">合约 · Guard</div><div class="rv">机检预算(+2% fee)/白名单/期限；Deny = 成功风控</div></div>
+    </div>
+    <p class="flow">
+      <strong>今天的戏：</strong>
+      ① 授权 Session Key →
+      ② Agent 代付咖啡成功（Executed）→
+      ③ 诱导超额 / 陌生商家 → PaymentDenied →
+      ④ 你 Freeze 停权，或 Close 退款收工。
+      这就是 Furiosa「Agent 花钱可控」的最小完整故事。
+    </p>
+  </section>
+
+  <div class="bridge-grid" aria-label="Bridge 概念落地">
+    <div class="bridge-item"><div class="bk">Chain-aware Context</div><div class="bv">模型只看见当前 session 的预算/白名单/期限（Policy 面板），不瞎编额度。</div></div>
+    <div class="bridge-item"><div class="bk">Web3 Tool Use</div><div class="bv">查策略自动 · Propose 受 Session 约束 · Freeze/Close 仅 owner。</div></div>
+    <div class="bridge-item"><div class="bk">Agent Workflow</div><div class="bv">代付提议可自动；越权由合约拦；停权/退款必须你来点。</div></div>
+    <div class="bridge-item"><div class="bk">Machine Payment</div><div class="bv">小额、白名单、有期限的机器代付；拒绝也留下可审计收据。</div></div>
+    <div class="bridge-item"><div class="bk">Verifiable AI</div><div class="bv">下方双栏：模型说了什么 / 合约判了什么（含 tx）。</div></div>
+    <div class="bridge-item"><div class="bk">AI Security</div><div class="bv">即使模型被诱导越权，Guard 仍 Deny — 安全论据可演示。</div></div>
+    <div class="bridge-item"><div class="bk">AI Sovereignty</div><div class="bv">Freeze 停权；Close 关闭会话并退回剩余预算。</div></div>
+    <div class="bridge-item"><div class="bk">AI Privacy</div><div class="bv">不注入整本钱包历史，只给当前 session 策略摘要。</div></div>
+  </div>
+
   <section class="guide" id="demoGuide">
     <div class="guide-top">
-      <h3>演示引导 · Handbook 四段对比（正常 / 超限 / 非白名单 / 撤销）</h3>
-      <button type="button" class="primary-cta" id="btnStartDemo">开始 60 秒演示</button>
+      <h3>演示引导 · 点按钮自动跑四段（Grant → Propose → Deny → Freeze）</h3>
+      <button type="button" class="primary-cta" id="btnStartDemo" title="自动执行：Grant → Propose → Over-budget Deny → Freeze">开始 60 秒演示（自动）</button>
     </div>
     <div class="guide-steps">
       <button type="button" class="gstep active" data-step="1" id="gstep1">
@@ -811,7 +905,7 @@
     <!-- POLICY -->
     <section class="card" id="panelPolicy">
       <h2>Policy 策略 <span class="hint">budget · deadline · merchants</span></h2>
-      <p class="panel-caption">你在看什么：<strong>Session Key / Policy</strong>——预算、商户白名单、期限。这是可机检的链上条件，不是 prompt。</p>
+      <p class="panel-caption">你在看什么：<strong>Session Key / Policy</strong>（代付授权）——预算、白名单商家、期限。Freeze=停权；Close=退款收工。</p>
       <div class="badges" id="policyBadges"></div>
       <div class="row">
         <div>
@@ -849,13 +943,14 @@
       <div class="actions">
         <button class="ghost" id="btnRefresh">Refresh</button>
         <button class="danger" id="btnFreeze">Freeze (Kill)</button>
+        <button class="ghost" id="btnClose" title="关闭会话并退回剩余预算">Close / 退款</button>
       </div>
 
       <h2 style="margin-top:20px">Grant session 授权</h2>
       <div class="row">
         <div>
           <label>Budget (ETH)</label>
-          <input id="budget" value="1" />
+          <input id="budget" value="0.5" />
         </div>
         <div>
           <label>Duration (sec)</label>
@@ -1041,10 +1136,110 @@
     document.querySelectorAll('.gstep').forEach(btn => {
       btn.addEventListener('click', () => setGuideStep(Number(btn.dataset.step)));
     });
-    $('btnStartDemo').onclick = () => {
-      setGuideStep(1);
-      toast('60 秒演示', '从 Grant 开始：授权 → 正常支付 → 越权拒绝 → Freeze', true);
-    };
+    let autoDemoRunning = false;
+
+    async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+    async function runAutoDemo() {
+      if (autoDemoRunning) {
+        toast('演示进行中', '请稍候…');
+        return;
+      }
+      const btn = $('btnStartDemo');
+      autoDemoRunning = true;
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = '演示进行中…';
+      }
+      try {
+        // 1 Grant Session Key
+        setGuideStep(1);
+        $('coachText').innerHTML = '<strong>自动演示 1/4：</strong>正在 Grant Session Key（额度 · 白名单 · 期限）…';
+        toast('自动演示', '1/4 Grant Session Key', true);
+        const merchants = ($('merchants').value || '')
+          .split(',').map(s => s.trim()).filter(Boolean);
+        const grant = await api('/api/grant', {
+          method: 'POST',
+          body: JSON.stringify({
+            budgetEth: $('budget').value || '1',
+            durationSec: Number($('duration').value || 3600),
+            merchants: merchants.length ? merchants : [
+              '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+              '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+            ],
+          }),
+        });
+        setSid(grant.sessionId);
+        $('result').textContent = JSON.stringify(grant, null, 2);
+        markDone(1);
+        await refreshSessions();
+        await refreshPolicy();
+        await sleep(600);
+
+        // 2 In-limit Propose
+        setGuideStep(2);
+        $('coachText').innerHTML = '<strong>自动演示 2/4：</strong>正在 Propose 正常支付（可能要等 LLM 几秒到几十秒）…';
+        toast('自动演示', '2/4 Propose 正常支付', true);
+        $('intent').value = 'Buy coffee for 0.02 ETH';
+        const prop = await api('/api/propose', {
+          method: 'POST',
+          body: JSON.stringify({ sessionId: grant.sessionId, intent: $('intent').value }),
+        });
+        $('result').textContent = JSON.stringify(prop, null, 2);
+        if (typeof renderDualEvidence === 'function') renderDualEvidence(prop);
+        markDone(2);
+        await refreshPolicy();
+        await loadEvents(true);
+        await sleep(800);
+
+        // 3 Guard: over-budget deny (success)
+        setGuideStep(3);
+        $('coachText').innerHTML = '<strong>自动演示 3/4：</strong>Over-budget — 期待 PaymentDenied（拒绝=成功）…';
+        toast('自动演示', '3/4 Guard 越权拒绝', true);
+        const boundary = await api('/api/demo/boundary', {
+          method: 'POST',
+          body: JSON.stringify({ case: 'budget' }),
+        });
+        if (boundary.sessionId != null) setSid(boundary.sessionId);
+        $('result').textContent = JSON.stringify(boundary, null, 2);
+        if (typeof renderDualEvidence === 'function') renderDualEvidence(boundary);
+        setMeaning('合约拒绝了越权支付 — 边界在链上强制，不在 prompt。PaymentDenied 是成功结果。', true);
+        markDone(3);
+        await refreshSessions();
+        await refreshPolicy();
+        await loadEvents(true);
+        await sleep(800);
+
+        // 4 Freeze / HITL revoke
+        setGuideStep(4);
+        $('coachText').innerHTML = '<strong>自动演示 4/4：</strong>Freeze = 吊销 Session Key…';
+        toast('自动演示', '4/4 Freeze 撤销', true);
+        const sidNow = sid();
+        const frozen = await api('/api/freeze', {
+          method: 'POST',
+          body: JSON.stringify({ sessionId: sidNow }),
+        });
+        $('result').textContent = JSON.stringify(frozen, null, 2);
+        setMeaning('会话已冻结：用户紧急停止生效，Agent 无法再推进支付。');
+        markDone(4);
+        clearFocus();
+        await refreshPolicy();
+        $('coachText').innerHTML = '<strong>演示完成：</strong>代付授权 → 成功支付 → Guard 拒绝越权 → Freeze。还可点 Close/退款收回剩余预算。';
+        toast('60 秒演示完成', '四段路径已跑通', true);
+      } catch (e) {
+        toast('自动演示中断', e.message || String(e));
+        $('result').textContent = e.message || String(e);
+        $('coachText').innerHTML = '<strong>演示中断：</strong>' + (e.message || String(e)) + ' — 可手动继续点下面按钮。';
+      } finally {
+        autoDemoRunning = false;
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = '开始 60 秒演示';
+        }
+      }
+    }
+
+    $('btnStartDemo').onclick = () => { runAutoDemo(); };
 
 
     function toast(title, body, ok = false) {
@@ -1261,6 +1456,26 @@
         await refreshPolicy();
       } catch (e) { $('result').textContent = e.message; }
     };
+    $('btnClose').onclick = async () => {
+      try {
+        if (!confirm('Close session and refund remaining budget to owner?')) return;
+        $('btnClose').disabled = true;
+        const data = await api('/api/close', { method: 'POST', body: JSON.stringify({ sessionId: sid() }) });
+        $('result').textContent = JSON.stringify(data, null, 2);
+        toast('Closed / 退款', `refunded ${data.refundedEth || '?'} ETH`, true);
+        setMeaning(`会话已关闭并退款 ${data.refundedEth || ''} ETH — AI Sovereignty：权限可收回，剩余预算回到你。`);
+        markDone(4);
+        clearFocus();
+        await refreshSessions();
+        await refreshPolicy();
+      } catch (e) {
+        $('result').textContent = e.message;
+        toast('Close failed', e.message);
+      } finally {
+        $('btnClose').disabled = false;
+      }
+    };
+
     $('btnGrant').onclick = async () => {
       try {
         const merchants = $('merchants').value.split(',').map(s => s.trim()).filter(Boolean);

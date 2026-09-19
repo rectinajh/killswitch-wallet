@@ -218,6 +218,25 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { transactionHash: receipt.hash, frozen: true });
     }
 
+
+    if (req.method === 'POST' && url.pathname === '/api/close') {
+      const body = await readBody(req);
+      const provider = new ethers.JsonRpcProvider(RPC_URL);
+      const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
+      const c = getContract(wallet);
+      const sessionId = Number(body.sessionId || 0);
+      const before = await c.getSessionPolicy(sessionId);
+      const remainingWei = before[1] - before[2]; // budget - spent
+      const tx = await c.closeSession(sessionId);
+      const receipt = await tx.wait();
+      return send(res, 200, {
+        transactionHash: receipt.hash,
+        closed: true,
+        refundedEth: ethers.formatEther(remainingWei > 0n ? remainingWei : 0n),
+        note: 'Session closed; remaining budget refunded to owner (AI Sovereignty)',
+      });
+    }
+
     if (req.method === 'POST' && url.pathname === '/api/propose') {
       const body = await readBody(req);
       const { paymentProposer } = await initializeAgent();
