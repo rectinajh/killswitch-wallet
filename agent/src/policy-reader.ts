@@ -2,17 +2,18 @@ import { ethers, EventLog } from 'ethers';
 import { feeWei, totalCostWei, feePercentLabel } from './fees.js';
 
 const SESSION_POLICY_ABI = [
-  'function getSessionPolicy(uint256 sessionId) view returns (address owner, uint256 budget, uint256 spent, uint256 deadline, address[] memory merchants, bool frozen, bool active)',
+  'function getSessionPolicy(uint256 sessionId) view returns (address owner, address agent, uint256 budget, uint256 spent, uint256 deadline, address[] memory merchants, bool frozen, bool active)',
   'function getRemainingBudget(uint256 sessionId) view returns (uint256)',
   'function checkMerchant(uint256 sessionId, address merchant) view returns (bool)',
   'function nextSessionId() view returns (uint256)',
   'event PaymentProposed(uint256 indexed sessionId, address indexed merchant, uint256 amount, string description)',
-  'event PaymentExecuted(uint256 indexed sessionId, address indexed merchant, uint256 amount, uint256 fee, bytes32 txHash)',
+  'event PaymentExecuted(uint256 indexed sessionId, address indexed merchant, uint256 amount, uint256 fee, bytes32 receiptId)',
   'event PaymentDenied(uint256 indexed sessionId, address indexed merchant, uint256 amount, string reason)',
 ];
 
 export interface SessionPolicy {
   owner: string;
+  agent: string;
   budget: bigint;
   spent: bigint;
   deadline: bigint;
@@ -27,21 +28,15 @@ export interface PaymentEvent {
   merchant: string;
   amount: bigint;
   fee?: bigint;
-  txHash?: string;
+  /** On-chain content receipt id — NOT the chain tx hash */
+  receiptId?: string;
   reason?: string;
   description?: string;
   blockNumber: number;
+  /** Ethers / RPC transaction hash */
   transactionHash: string;
 }
 
-/**
- * PolicyReader: Read on-chain session policy and payment history
- *
- * This module reads policy boundaries from the smart contract.
- * IMPORTANT: The agent uses this for advisory purposes only.
- * Actual enforcement happens on-chain in SessionPolicy.sol.
- * Budget enforcement uses amount + 2% fee (see feeWei).
- */
 export class PolicyReader {
   private contract: ethers.Contract;
   private provider: ethers.Provider;
@@ -60,6 +55,7 @@ export class PolicyReader {
 
     return {
       owner: policy.owner,
+      agent: policy.agent,
       budget: policy.budget,
       spent: policy.spent,
       deadline: policy.deadline,
@@ -81,9 +77,6 @@ export class PolicyReader {
     return Number(await this.contract.nextSessionId());
   }
 
-  /**
-   * List recent session ids (nextSessionId-1 .. max(0, next-limit))
-   */
   async listRecentSessionIds(limit: number = 20): Promise<number[]> {
     const next = await this.getNextSessionId();
     const ids: number[] = [];
@@ -107,10 +100,7 @@ export class PolicyReader {
       return { usable: false, reason: 'Session frozen by owner' };
     }
 
-    const now = BigInt(Math.floor(Date.now() / 1000));
-    if (now > policy.deadline) {
-      return { usable: false, reason: 'Session deadline expired' };
-    }
+    // Deadline is NOT blocked here — proposeOrPay records PaymentDenied so expiry is auditable.
 
     if (policy.spent >= policy.budget) {
       return { usable: false, reason: 'Budget fully spent' };
@@ -119,55 +109,14 @@ export class PolicyReader {
     return { usable: true };
   }
 
-  /**
-   * Public RPCs (e.g. Sepolia) often cap eth_getLogs ranges (~50k blocks).
-   * When fromBlock is 0, start from CONTRACT_DEPLOY_BLOCK or a recent lookback,
-   * and always page queries in chunks under the provider limit.
-   */
-  private async resolveLogRange(fromBlock: number): Promise<{ from: number; to: number }> {
-    const latest = await this.provider.getBlockNumber();
-    const chunkCap = Number(process.env.LOG_CHUNK_BLOCKS || 40_000);
-    let from = fromBlock;
-    if (!from || from <= 0) {
-      const deploy = Number(process.env.CONTRACT_DEPLOY_BLOCK || 0);
-      if (deploy > 0) {
-        from = deploy;
-      } else {
-        from = Math.max(0, latest - chunkCap);
-      }
-    }
-    // If still too wide, clamp start so a single page fits; chunked query covers the rest.
-    if (latest - from > chunkCap * 50) {
-      // Extremely wide: prefer deploy/lookback over scanning all of Sepolia history.
-      from = Math.max(from, latest - chunkCap * 5);
-    }
-    return { from, to: latest };
-  }
-
-  private async queryFilterChunked(
-    filter: ethers.DeferredTopicFilter,
-    fromBlock: number,
-    toBlock: number
-  ): Promise<(ethers.Log | EventLog)[]> {
-    const chunk = Number(process.env.LOG_CHUNK_BLOCKS || 40_000);
-    const out: (ethers.Log | EventLog)[] = [];
-    for (let start = fromBlock; start <= toBlock; start += chunk) {
-      const end = Math.min(start + chunk - 1, toBlock);
-      const part = await this.contract.queryFilter(filter, start, end);
-      out.push(...part);
-    }
-    return out;
-  }
-
   async getPaymentHistory(
     sessionId: number,
     fromBlock: number = 0
   ): Promise<PaymentEvent[]> {
     const events: PaymentEvent[] = [];
-    const { from, to } = await this.resolveLogRange(fromBlock);
 
     const proposedFilter = this.contract.filters.PaymentProposed(sessionId);
-    const proposedEvents = await this.queryFilterChunked(proposedFilter, from, to);
+    const proposedEvents = await this.contract.queryFilter(proposedFilter, fromBlock);
     for (const event of proposedEvents) {
       const args = (event as EventLog).args;
       if (!args) continue;
@@ -184,7 +133,7 @@ export class PolicyReader {
     }
 
     const executedFilter = this.contract.filters.PaymentExecuted(sessionId);
-    const executedEvents = await this.queryFilterChunked(executedFilter, from, to);
+    const executedEvents = await this.contract.queryFilter(executedFilter, fromBlock);
     for (const event of executedEvents) {
       const args = (event as EventLog).args;
       if (!args) continue;
@@ -194,14 +143,14 @@ export class PolicyReader {
         merchant: args.merchant,
         amount: args.amount,
         fee: args.fee,
-        txHash: args.txHash,
+        receiptId: args.receiptId,
         blockNumber: event.blockNumber,
         transactionHash: event.transactionHash,
       });
     }
 
     const deniedFilter = this.contract.filters.PaymentDenied(sessionId);
-    const deniedEvents = await this.queryFilterChunked(deniedFilter, from, to);
+    const deniedEvents = await this.contract.queryFilter(deniedFilter, fromBlock);
     for (const event of deniedEvents) {
       const args = (event as EventLog).args;
       if (!args) continue;
@@ -235,13 +184,13 @@ export class PolicyReader {
     return `
 Session Policy:
   Owner: ${policy.owner}
-  Budget: ${budgetEth} ETH
-  Spent: ${spentEth} ETH (includes ${feePercentLabel()} fees on executed payments)
+  Agent: ${policy.agent}
+  Budget: ${budgetEth} ETH (max totalCost = amount + ${feePercentLabel()})
+  Spent: ${spentEth} ETH
   Remaining: ${remainingEth} ETH
   Deadline: ${deadline.toISOString()}
   Merchants: ${policy.merchants.join(', ')}
   Status: ${policy.active ? (policy.frozen ? 'FROZEN' : 'ACTIVE') : 'CLOSED'}
-  Note: Budget check uses amount + ${feePercentLabel()} fee
     `.trim();
   }
 
@@ -267,8 +216,8 @@ ${status}
       details += `\n  Total cost: ${ethers.formatEther(totalCostWei(event.amount))} ETH`;
     }
 
-    if (event.type === 'executed' && event.txHash) {
-      details += `\n  Receipt Hash: ${event.txHash}`;
+    if (event.type === 'executed' && event.receiptId) {
+      details += `\n  Content receiptId: ${event.receiptId} (not chain tx hash)`;
     }
 
     if (event.type === 'denied' && event.reason) {
