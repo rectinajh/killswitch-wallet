@@ -4,16 +4,33 @@ import { KilnClient } from './kiln-client.js';
 import { PolicyReader } from './policy-reader.js';
 import { PaymentProposer } from './payment-proposer.js';
 
-config();
+config({ override: true });
 
 export { KilnClient } from './kiln-client.js';
 export { PolicyReader } from './policy-reader.js';
-export { PaymentProposer } from './payment-proposer.js';
+export {
+  PaymentProposer,
+  buildCommercePaymentCredential,
+  resolveChainLabel,
+  explorerUrlForTx,
+} from './payment-proposer.js';
 export { feeWei, totalCostWei, feePercentLabel, FEE_PERCENT } from './fees.js';
-export type { ProposePaymentOptions, PaymentResult } from './payment-proposer.js';
+export { buildAgentSystemPrompt, buildAgentContextPreview } from './agent-context.js';
+export type {
+  ProposePaymentOptions,
+  PaymentResult,
+  CommercePaymentCredential,
+} from './payment-proposer.js';
+
+/** Anvil #0 — owner (grant/freeze/close) */
+export const ANVIL_OWNER_KEY =
+  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
+/** Anvil #1 — agent (proposeOrPay) */
+export const ANVIL_AGENT_KEY =
+  '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d';
 
 function resolveLlmConfig() {
-  const provider = (process.env.LLM_PROVIDER || 'kimi').toLowerCase();
+  const provider = (process.env.LLM_PROVIDER || 'kiln').toLowerCase();
 
   if (provider === 'kimi') {
     const apiKey = process.env.KIMI_API_KEY || '';
@@ -26,7 +43,6 @@ function resolveLlmConfig() {
     };
   }
 
-  // Default / Furiosa official path
   const apiKey = process.env.KILN_API_KEY || '';
   return {
     provider: 'kiln',
@@ -37,27 +53,40 @@ function resolveLlmConfig() {
   };
 }
 
-/**
- * Initialize KillSwitch Wallet agent components
- */
+export function resolveOwnerPrivateKey(): string {
+  return (
+    process.env.OWNER_PRIVATE_KEY ||
+    process.env.PRIVATE_KEY_OWNER ||
+    ANVIL_OWNER_KEY
+  );
+}
+
+export function resolveAgentPrivateKey(): string {
+  return (
+    process.env.AGENT_PRIVATE_KEY ||
+    process.env.PRIVATE_KEY ||
+    ANVIL_AGENT_KEY
+  );
+}
+
 export async function initializeAgent() {
   const rpcUrl = process.env.RPC_URL || 'http://127.0.0.1:8545';
   const contractAddress = process.env.CONTRACT_ADDRESS;
-  const privateKey = process.env.PRIVATE_KEY;
 
   if (!contractAddress) {
     throw new Error('CONTRACT_ADDRESS environment variable required');
   }
 
-  if (!privateKey) {
-    throw new Error('PRIVATE_KEY environment variable required');
-  }
+  const agentKey = resolveAgentPrivateKey();
+  const ownerKey = resolveOwnerPrivateKey();
 
   const provider = new ethers.JsonRpcProvider(rpcUrl);
-  const signer = new ethers.Wallet(privateKey, provider);
+  const signer = new ethers.Wallet(agentKey, provider);
+  const ownerSigner = new ethers.Wallet(ownerKey, provider);
 
   const llm = resolveLlmConfig();
   console.log(`[Agent] LLM provider=${llm.provider} model=${llm.model} mock=${llm.mockMode}`);
+  console.log(`[Agent] owner=${ownerSigner.address} agent=${signer.address}`);
 
   const kilnClient = new KilnClient({
     apiKey: llm.apiKey,
@@ -76,6 +105,7 @@ export async function initializeAgent() {
   return {
     provider,
     signer,
+    ownerSigner,
     kilnClient,
     policyReader,
     paymentProposer,
@@ -84,9 +114,6 @@ export async function initializeAgent() {
   };
 }
 
-/**
- * Example usage (for testing)
- */
 if (import.meta.url === `file://${process.argv[1]}`) {
   const sessionId = parseInt(process.env.SESSION_ID || '0');
   const userIntent = process.env.USER_INTENT || 'Buy coffee for $5';
@@ -101,12 +128,11 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       const result = await paymentProposer.proposePayment(sessionId, userIntent);
 
       console.log('\n=== RESULT ===');
-      console.log(JSON.stringify(result, (_, v) => typeof v === 'bigint' ? v.toString() : v, 2));
+      console.log(JSON.stringify(result, (_, v) => (typeof v === 'bigint' ? v.toString() : v), 2));
 
-      if (result.success) {
-        const explanation = await paymentProposer.explainResult(result);
+      if (result.explanation) {
         console.log('\n=== EXPLANATION ===');
-        console.log(explanation);
+        console.log(result.explanation);
       }
     })
     .catch(console.error);
