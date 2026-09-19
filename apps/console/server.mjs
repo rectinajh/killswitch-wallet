@@ -9,7 +9,11 @@ import { buildAgentContextPreview } from '../../agent/dist/agent-context.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '../..');
-loadEnv({ path: path.join(root, '.env') });
+try {
+  loadEnv({ path: path.join(root, '.env') });
+} catch (_) {
+  /* Vercel / CI: env comes from process.env */
+}
 
 const PORT = Number(process.env.CONSOLE_PORT || 8787);
 const abi = JSON.parse(fs.readFileSync(path.join(__dirname, 'abi.json'), 'utf8'));
@@ -134,9 +138,11 @@ async function rpcReachable() {
   }
 }
 
-const server = http.createServer(async (req, res) => {
+export async function handler(req, res) {
   try {
-    const url = new URL(req.url, `http://127.0.0.1:${PORT}`);
+    const host = req.headers.host || `127.0.0.1:${PORT}`;
+    const proto = req.headers['x-forwarded-proto'] || 'http';
+    const url = new URL(req.url, `${proto}://${host}`);
     const { rpcUrl: RPC_URL, privateKey: PRIVATE_KEY, contractAddress: CONTRACT_ADDRESS } = env();
     if (req.method === 'OPTIONS') {
       res.writeHead(204, {
@@ -492,11 +498,17 @@ const server = http.createServer(async (req, res) => {
   } catch (err) {
     send(res, 500, { error: err.message || String(err) });
   }
-});
+}
 
-server.listen(PORT, '127.0.0.1', () => {
-  const e = env();
-  console.log(`KillSwitch console http://127.0.0.1:${PORT}`);
-  console.log(`Contract ${e.contractAddress || '(unset)'}`);
-  console.log(`Fee model: amount + ${feePercentLabel()} (budget checks totalCost)`);
-});
+export default handler;
+
+// Local mode only — on Vercel, export the handler and do not listen.
+if (!process.env.VERCEL) {
+  const server = http.createServer(handler);
+  server.listen(PORT, '127.0.0.1', () => {
+    const e = env();
+    console.log(`KillSwitch console http://127.0.0.1:${PORT}`);
+    console.log(`Contract ${e.contractAddress || '(unset)'}`);
+    console.log(`Fee model: amount + ${feePercentLabel()} (budget checks totalCost)`);
+  });
+}

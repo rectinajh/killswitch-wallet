@@ -67,6 +67,26 @@ KillSwitch is built as an **Agentic Commerce** scenario on the [AI × Web3 Schoo
 See also: [Agent Wallet (zh)](https://aiweb3.school/zh/handbook/bridge/agent-wallet/) · [Wallet / Permission track](https://aiweb3.school/en/handbook/tracks/wallet-permission/)
 
 
+
+## Deploy (Vercel)
+
+Production console deploys from GitHub `main` via the linked Vercel project (`killswitch-wallet`) and/or `.github/workflows/deploy-vercel.yml`.
+
+**Required Vercel environment variables**
+
+| Variable | Purpose |
+|----------|---------|
+| `RPC_URL` | Public JSON-RPC (not `127.0.0.1` Anvil) |
+| `PRIVATE_KEY` | Demo signer (never commit; use a throwaway funded key) |
+| `CONTRACT_ADDRESS` | Deployed `SessionPolicy` on that network |
+| `LLM_PROVIDER` | `kiln` (Furiosa official) or `kimi` (local/demo) |
+| `KILN_API_KEY` / `KIMI_API_KEY` | Matching provider key (missing → mock proposals) |
+
+**CI secrets** (for the GitHub Actions deploy workflow): `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`.
+
+**Local console:** `npm run vercel-build && npm run console` → http://127.0.0.1:8787
+
+
 ## Architecture
 
 ```mermaid

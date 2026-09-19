@@ -32,3 +32,6 @@ demos/*.log
 apps/console/preview*.png
 *.bak
 apps/console/start-console.sh
+.vercel
+.env*
+.env.local
