@@ -1,14 +1,9 @@
 {
   "name": "killswitch-wallet",
   "private": true,
-  "type": "module",
   "scripts": {
-    "vercel-build": "npm install --prefix agent && npm run build --prefix agent && npm install --prefix apps/console",
-    "console": "node apps/console/server.mjs"
-  },
-  "dependencies": {
-    "axios": "^1.7.0",
-    "dotenv": "^16.4.0",
-    "ethers": "^6.13.0"
+    "vercel-build": "bash apps/console/assemble-server.sh && npm install --prefix agent && npm run build --prefix agent && npm install --prefix apps/console",
+    "console": "node apps/console/server.mjs",
+    "assemble-console": "bash apps/console/assemble-server.sh"
   }
 }
