@@ -5,31 +5,37 @@
 [![Solidity](https://img.shields.io/badge/Solidity-0.8.24-blue.svg)](https://soliditylang.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.4-blue.svg)](https://www.typescriptlang.org/)
 
-**Furiosa Challenge B (GWDC 2026 Korea)** — AI Agent spending controls & records (cypherpunk)
+**Furiosa Challenge B (GWDC 2026 Korea)** — **Agentic Commerce** with on-chain spend controls (cypherpunk)
 
-## Declared Function
+## Core thesis: Agentic Commerce
 
-**KillSwitch Wallet lets a user delegate a time-bounded, merchant-whitelisted budget to an AI agent, enforces that boundary in code/on-chain (not by trusting the model), and leaves an auditable trail so anyone can reconstruct whether a payment was authorized.**
+**KillSwitch is a concrete Agentic Commerce demo:** an AI agent discovers a merchant, takes a quote, and pays *for you* — but only inside a **Session Key** (budget · whitelist · deadline). The agent **proposes**; `SessionPolicy` **Guards**; **`PaymentDenied` is a successful security outcome**; you can **Freeze** or **Close + refund**. Do not trust the model.
+
+Why this framing for judges: Handbook “智能体商业” is the story; Wallet / Session Key / Guard are the mechanism. A meeting-coffee / API-billing scene is easier to score than “generic agent wallet.”
+
+### Declared Function
+
+**User grants a time-bounded, merchant-whitelisted budget; the agent checkout under that policy; the contract enforces and leaves a merchant-verifiable `CommercePaymentCredential` + on-chain events.**
 
 ### User Need
-Intended for users who want an LLM agent to buy/pay on their behalf without unbounded spending risk.
+You want an LLM to buy coffee or settle an API bill while you are offline — without unbounded spend risk or silent off-allowlist payments.
 
-**Problem**: Traditional payment rails record *who paid whom*, but not *who authorized it* or *under what conditions*.
+**Problem**: Traditional rails record *who paid whom*, not *who authorized it* or *under what session rules*. Prompts cannot be the policy.
 
-**Solution**: A session-capability system where the agent proposes payments, but enforcement happens in smart contracts and on-chain records — never by trusting the model.
+**Solution**: Discover → Quote → Session-authorized Checkout → Guard (Executed | Denied) → Credential / Freeze / Close. Details: [`docs/AGENTIC_COMMERCE.md`](docs/AGENTIC_COMMERCE.md) · 90s path: [`JUDGE.md`](JUDGE.md) · [`DEMO_SCRIPT.md`](DEMO_SCRIPT.md).
 
 ## Cypherpunk Design Principles
 
 1. **Agent proposes; policy contract disposes** — Stopping/deny is a correct recorded outcome
 2. **Least privilege** — Session capability with budget, merchant allowlist, deadline
 3. **Don't trust the model** — Enforce boundaries in code + on-chain, not in prompts
-4. **Evidence** — Another person with only your records can reconstruct authorization
+4. **Evidence** — Another person with only your records can reconstruct authorization (credential + events)
 
 
 
 ## Alignment with AI × Web3 Handbook
 
-KillSwitch maps directly onto the [AI × Web3 School Handbook](https://aiweb3.school/zh/handbook/) **Wallet / Permission** and **Agent Wallet** tracks — the same vocabulary judges and builders use for session keys, policy, and guards.
+KillSwitch is built as an **Agentic Commerce** scenario on the [AI × Web3 School Handbook](https://aiweb3.school/zh/handbook/) **Wallet / Permission** and **Agent Wallet** tracks — same vocabulary: Session Key, Policy, Guard, HITL.
 
 | Handbook concept | KillSwitch implementation | Demo proof |
 |---|---|---|
@@ -46,15 +52,15 @@ KillSwitch maps directly onto the [AI × Web3 School Handbook](https://aiweb3.sc
 
 **Console Bridge Lab:** tabs for Chain-aware Context (live LLM prompt preview), Tool Use matrix, Workflow zones, Machine Payment timeline, Verifiable AI match, Security deny scoreboard, Sovereignty Freeze vs Close, Privacy include/exclude — all bound to the active session.
 
-**Frontier track tags (for pitch):** Wallet & Permission (primary) · AI Security (secondary) · Agentic Commerce (scenario).
+**Frontier track tags (for pitch):** **Agentic Commerce (core scenario)** · Wallet & Permission (mechanism) · AI Security (Guard / deny = success).
 
 **Canonical Handbook demo contrast (already implemented):**
-1. In-limit payment → `PaymentExecuted`
+1. In-limit checkout (Coffee Lane) → `PaymentExecuted` + paid credential
 2. Over-limit → policy reject
-3. Non-allowlisted merchant → Guard intercept
-4. User revokes session → Agent loses capability
+3. Off-catalog / Shadow Shop → Guard intercept (`PaymentDenied`)
+4. User Freeze / Close → Agent loses capability / refund
 
-**Agentic Commerce:** [`docs/AGENTIC_COMMERCE.md`](docs/AGENTIC_COMMERCE.md) — discover → quote → checkout → `CommercePaymentCredential`.
+**Deep dive:** [`docs/AGENTIC_COMMERCE.md`](docs/AGENTIC_COMMERCE.md).
 
 **Production evolution:** [`docs/AA_SESSION_KEY.md`](docs/AA_SESSION_KEY.md) maps `ISessionCapability` → ERC-4337 Session Key. Check official LLM: `./scripts/check-furiosa-path.sh`.
 

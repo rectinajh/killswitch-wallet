@@ -1,5 +1,8 @@
 # KillSwitch — 90 秒演示分镜（Agentic Commerce）
 
+**核心理念**  
+本项目演示的是 Handbook **智能体商业**：发现商家 → 报价 → Session 内代付 → 合约 Guard → 凭证 / Freeze。Session Key 是机制，不是标题。
+
 **目标评委印象（一句话）**  
 Agent 可以替你向白名单商家代付，但不能拿主私钥；超额或陌生商家会被合约拒绝并留证；你随时 Freeze / Close 退款。
 

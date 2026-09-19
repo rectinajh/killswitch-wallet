@@ -1,19 +1,34 @@
-> **录屏分镜：** 见 [`DEMO_SCRIPT.md`](DEMO_SCRIPT.md)（Agentic Commerce 90 秒）。
+> **录屏分镜：** 见 [`DEMO_SCRIPT.md`](DEMO_SCRIPT.md)（Agentic Commerce 90 秒）。  
+> **理念详解：** [`docs/AGENTIC_COMMERCE.md`](docs/AGENTIC_COMMERCE.md)
 
 # KillSwitch Wallet — Judge Path (≈90 seconds)
 
-**Furiosa Challenge B / GWDC 2026 Korea** · Agent spending controls  
-**Handbook track:** [AI × Web3 — Wallet / Permission · Agent Wallet](https://aiweb3.school/zh/handbook/)
+**Furiosa Challenge B / GWDC 2026 Korea**  
+**Core idea:** **Agentic Commerce（智能体商业）** — agent discovers, quotes, and pays under a Session Key; contract Guards; user keeps Freeze/Close.  
+**Handbook:** [AI × Web3 — Wallet / Permission · Agent Wallet](https://aiweb3.school/zh/handbook/) · scenario = 智能体商业
 
-## Scenario (Agentic Commerce)
+## Why Agentic Commerce (scoring)
 
-You authorize an agent to pay **whitelisted merchants** within a **time-bounded budget** (e.g. coffee / API bills while you are in a meeting). The agent proposes; the contract guards; deny is success; you can Freeze or Close+refund.
+Judges score a **concrete loop** faster than a generic “agent wallet”:
+
+| Score lens | What KillSwitch shows |
+|------------|------------------------|
+| Problem clarity | Meeting / offline → agent should pay coffee or API bills, not the whole vault |
+| Mechanism | Session Key = budget + allowlist + deadline (not master key) |
+| Security outcome | `PaymentDenied` is success; dual evidence LLM vs chain |
+| Sovereignty | Freeze / Close+refund — human override |
+| Verifiability | `CommercePaymentCredential` + on-chain events |
+
+Session Key / Policy / Guard are the **mechanism**; Agentic Commerce is the **story you demo**.
+
+## Scenario (one breath)
+
+You authorize an agent to pay **whitelisted merchants** within a **time-bounded budget**. Agent **proposes / checkouts**; contract **Guards**; deny is success; you can **Freeze** or **Close+refund**.
 
 ## One-liner
 
-User grants a **Session Key** (`SessionPolicy`: budget + merchant allowlist + deadline).  
-The **Agent proposes**; the **contract Guards**; **`PaymentDenied` is a successful security outcome**.  
-User can **Freeze** (HITL revoke) at any time. Do not trust the model.
+**Agentic Commerce under SessionPolicy:** discover → quote → checkout → Guard (`Executed` \| `Denied`) → credential / Freeze / Close.  
+Do not trust the model.
 
 ## Bring-up (local)
 
@@ -46,19 +61,20 @@ RUN_AGENT_BOUNDARY=1 ./demos/run-all.sh   # includes LLM→contract deny paths
 | # | Action | Where | What you should see |
 |---|--------|--------|---------------------|
 | 1 | **Grant Session Key** | Policy → Grant session | New `sessionId`; budget / allowlist / deadline active |
-| 2 | **In-limit Propose** | Agent → intent e.g. coffee 0.03 ETH → **Propose** | Dual pane: LLM proposal + **PaymentExecuted**; Chain receipt |
+| 2 | **In-limit Checkout** | 情景 → Coffee Lane → **Checkout 代付** | Dual pane: LLM proposal + **PaymentExecuted**; paid credential |
 | 3a | **Guard: over-budget** | Agent → **Over-budget** | **PaymentDenied** (Insufficient budget) — **deny = success** |
-| 3b | **Guard: off-allowlist** | Agent → **Off-allowlist** | **PaymentDenied** (Merchant not allowed) — **deny = success** |
+| 3b | **Guard: off-allowlist** | 情景 → **Shadow Shop** / Agent → **Off-allowlist** | **PaymentDenied** (Merchant not allowed) — **deny = success** |
 | 4 | **HITL revoke** | Policy → **Freeze (Kill)** | Session frozen; Agent cannot spend further |
 | 4b | **Close / refund** (optional) | Policy → **Close / 退款** | Session closed; remaining budget refunded to owner |
 
-Narrative strip on the console maps: **Session Key · Policy · Guard · HITL**.
+Narrative strip on the console maps: **Session Key · Policy · Guard · HITL** inside the Agentic Commerce scene.
 
 ## What code enforces (not the LLM)
 
 - Budget check uses **`amount + 2% fee`**
 - Merchant allowlist, deadline, frozen flag
 - Immutable events: `PaymentProposed` / `PaymentExecuted` / `PaymentDenied`
+- Checkout receipt: **`CommercePaymentCredential`**
 
 ## LLM note
 
@@ -70,9 +86,10 @@ Narrative strip on the console maps: **Session Key · Policy · Guard · HITL**.
 
 | Path | Role |
 |------|------|
+| `docs/AGENTIC_COMMERCE.md` | Core Agentic Commerce thesis |
 | `contracts/src/SessionPolicy.sol` | On-chain policy / Guard |
 | `agent/` | Propose via LLM; submit to contract |
-| `apps/console/` | Judge UI + dual evidence (LLM vs chain) |
+| `apps/console/` | Judge UI + commerce funnel + dual evidence |
 | `demos/agent-boundary.mjs` | Automated over-budget + off-allowlist |
 | `README.md` | Handbook alignment table |
 
@@ -82,7 +99,7 @@ Open the **Bridge Lab** tabs under the scenario strip:
 
 | Tab | Prove in ≤15s |
 |-----|----------------|
-| Chain-aware Context | Refresh — only session policy in LLM prompt |
+| Chain-aware Context | Cards: remaining / budget / deadline / allowlist (raw prompt optional) |
 | Web3 Tool Use | Permission matrix (Freeze/Close = owner only) |
 | Agent Workflow | Auto / Guard / HITL zones light during 60s demo |
 | Machine Payment | Budget / spent / whitelist shops + timeline |
@@ -94,7 +111,8 @@ Open the **Bridge Lab** tabs under the scenario strip:
 
 ## Pass criteria for judges
 
-1. Can explain Session Key ≠ master key in one sentence  
-2. Sees **Executed** and **Denied** as first-class outcomes  
-3. Sees user **Freeze** as revoke  
-4. Can point to on-chain events / receipts without trusting the model  
+1. Can restate **Agentic Commerce loop** in one sentence (discover → pay under session → Guard)  
+2. Can explain Session Key ≠ master key  
+3. Sees **Executed** and **Denied** as first-class outcomes  
+4. Sees user **Freeze / Close** as sovereignty  
+5. Can point to credential / on-chain events without trusting the model  
