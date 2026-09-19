@@ -202,13 +202,18 @@ Transaction Hash: ${transaction.txHash}`;
     console.log('[KilnClient] Mock proposal generated');
     
     const merchant = sessionPolicy.merchants[0] || '0x0000000000000000000000000000000000000000';
-    const amount = '0.05';
+    const ethMatch = userIntent.match(/(\d+(?:\.\d+)?)\s*ETH/i);
+    let amount = ethMatch ? ethMatch[1] : '0.05';
+    const remaining = parseFloat(sessionPolicy.remaining);
+    if (!Number.isNaN(remaining) && parseFloat(amount) > remaining) {
+      amount = Math.max(0, remaining * 0.5).toFixed(6).replace(/\.?0+$/, '');
+    }
 
     const proposal = {
       merchant: merchant,
       amount: amount,
       description: `Mock payment based on: ${userIntent.substring(0, 50)}`,
-      reasoning: `Selected first allowed merchant (${merchant}). Amount ${amount} ETH is within remaining budget ${sessionPolicy.remaining} ETH.`
+      reasoning: `Selected first allowed merchant (${merchant}). Parsed amount ${amount} ETH from intent; remaining budget ${sessionPolicy.remaining} ETH.`
     };
 
     return {
