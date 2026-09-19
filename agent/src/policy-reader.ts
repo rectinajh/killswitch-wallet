@@ -109,14 +109,54 @@ export class PolicyReader {
     return { usable: true };
   }
 
+  /**
+   * Public RPCs (e.g. Sepolia) often cap eth_getLogs ranges (~50k blocks).
+   * When fromBlock is 0, start from CONTRACT_DEPLOY_BLOCK or a recent lookback,
+   * and always page queries in chunks under the provider limit.
+   */
+  private async resolveLogRange(fromBlock: number): Promise<{ from: number; to: number }> {
+    const latest = await this.provider.getBlockNumber();
+    const chunkCap = Number(process.env.LOG_CHUNK_BLOCKS || 40_000);
+    let from = fromBlock;
+    if (!from || from <= 0) {
+      const deploy = Number(process.env.CONTRACT_DEPLOY_BLOCK || 0);
+      if (deploy > 0) {
+        from = deploy;
+      } else {
+        from = Math.max(0, latest - chunkCap);
+      }
+    }
+    // If still too wide, clamp start so we do not scan all of Sepolia history.
+    if (latest - from > chunkCap * 50) {
+      from = Math.max(from, latest - chunkCap * 5);
+    }
+    return { from, to: latest };
+  }
+
+  private async queryFilterChunked(
+    filter: ethers.DeferredTopicFilter,
+    fromBlock: number,
+    toBlock: number
+  ): Promise<(ethers.Log | EventLog)[]> {
+    const chunk = Number(process.env.LOG_CHUNK_BLOCKS || 40_000);
+    const out: (ethers.Log | EventLog)[] = [];
+    for (let start = fromBlock; start <= toBlock; start += chunk) {
+      const end = Math.min(start + chunk - 1, toBlock);
+      const part = await this.contract.queryFilter(filter, start, end);
+      out.push(...part);
+    }
+    return out;
+  }
+
   async getPaymentHistory(
     sessionId: number,
     fromBlock: number = 0
   ): Promise<PaymentEvent[]> {
     const events: PaymentEvent[] = [];
+    const { from, to } = await this.resolveLogRange(fromBlock);
 
     const proposedFilter = this.contract.filters.PaymentProposed(sessionId);
-    const proposedEvents = await this.contract.queryFilter(proposedFilter, fromBlock);
+    const proposedEvents = await this.queryFilterChunked(proposedFilter, from, to);
     for (const event of proposedEvents) {
       const args = (event as EventLog).args;
       if (!args) continue;
@@ -133,7 +173,7 @@ export class PolicyReader {
     }
 
     const executedFilter = this.contract.filters.PaymentExecuted(sessionId);
-    const executedEvents = await this.contract.queryFilter(executedFilter, fromBlock);
+    const executedEvents = await this.queryFilterChunked(executedFilter, from, to);
     for (const event of executedEvents) {
       const args = (event as EventLog).args;
       if (!args) continue;
@@ -150,7 +190,7 @@ export class PolicyReader {
     }
 
     const deniedFilter = this.contract.filters.PaymentDenied(sessionId);
-    const deniedEvents = await this.contract.queryFilter(deniedFilter, fromBlock);
+    const deniedEvents = await this.queryFilterChunked(deniedFilter, from, to);
     for (const event of deniedEvents) {
       const args = (event as EventLog).args;
       if (!args) continue;
