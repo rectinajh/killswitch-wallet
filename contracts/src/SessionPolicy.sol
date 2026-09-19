@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import {ISessionCapability} from "./interfaces/ISessionCapability.sol";
+
 /**
  * @title SessionPolicy
  * @notice Core policy enforcement for KillSwitch Wallet
  * @dev Agent proposes; contract disposes. Boundaries enforced on-chain, not by trusting the model.
  */
-contract SessionPolicy {
+contract SessionPolicy is ISessionCapability {
     struct Session {
         address owner;
         uint256 budget;

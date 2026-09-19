@@ -61,6 +61,8 @@ function llmMeta() {
         : process.env.KILN_MODEL || 'gpt-oss-120b',
     mockMode,
     furiosaOfficial: 'kiln gpt-oss-120b',
+          kilnKeyConfigured: Boolean(process.env.KILN_API_KEY && process.env.KILN_API_KEY !== 'your_key_here'),
+          officialPathReady: llmProvider === 'kiln' && Boolean(process.env.KILN_API_KEY && process.env.KILN_API_KEY !== 'your_key_here'),
   };
 }
 
@@ -193,6 +195,12 @@ const server = http.createServer(async (req, res) => {
         feeModel: `amount + ${feePercentLabel()} (budget checks totalCost)`,
         feeFormula: '(amount * 2) / 100',
         llm,
+        furiosaPath: {
+          officialLlm: 'LLM_PROVIDER=kiln + KILN_MODEL=gpt-oss-120b',
+          aaRoadmap: 'docs/AA_SESSION_KEY.md',
+          interface: 'contracts/src/interfaces/ISessionCapability.sol',
+          checkScript: 'scripts/check-furiosa-path.sh',
+        },
         time: new Date().toISOString(),
       });
     }

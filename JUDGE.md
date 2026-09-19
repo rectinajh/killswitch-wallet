@@ -80,6 +80,7 @@ Open the **Bridge Lab** tabs under the scenario strip:
 | AI Security | Deny scoreboard (`PaymentDenied` reasons) |
 | AI Sovereignty | Freeze vs Close table + live session state |
 | AI Privacy | Include/exclude chips + same context preview |
+| Production | Kiln official-path flags + AA Session Key rule map |
 
 ## Pass criteria for judges
 

@@ -990,6 +990,7 @@
       <button type="button" data-tab="sec">AI Security</button>
       <button type="button" data-tab="sov">AI Sovereignty</button>
       <button type="button" data-tab="priv">AI Privacy</button>
+      <button type="button" data-tab="prod">Production</button>
     </div>
 
     <div class="bridge-panel active" id="tab-ctx">
@@ -1085,6 +1086,22 @@
         <span class="pill bad">私钥 / API Key</span>
       </div>
       <pre class="ctx-box" id="privBox">刷新 Agent 上下文后显示 include/exclude…</pre>
+    </div>
+
+    <div class="bridge-panel" id="tab-prod">
+      <h4>Production · Furiosa 官方路径 + AA Session Key</h4>
+      <p class="desc">演示用 SessionPolicy 证明同一套能力规则；上线路径 = Kiln gpt-oss-120b + 未来 ERC-4337 Session 模块。规则表不变。</p>
+      <pre class="ctx-box" id="prodBox">加载 health…</pre>
+      <table class="matrix" style="margin-top:10px">
+        <thead><tr><th>规则</th><th>今天 SessionPolicy</th><th>明天 Smart Session</th></tr></thead>
+        <tbody>
+          <tr><td>预算 (+2% fee)</td><td>合约机检</td><td>Spending limit module</td></tr>
+          <tr><td>白名单商家</td><td>isMerchantAllowed</td><td>Target allowlist</td></tr>
+          <tr><td>期限</td><td>deadline</td><td>validUntil</td></tr>
+          <tr><td>Freeze / Close</td><td>owner 函数</td><td>Revoke key + withdraw</td></tr>
+          <tr><td>Deny = 成功</td><td>PaymentDenied</td><td>UserOp validation fail + 日志</td></tr>
+        </tbody>
+      </table>
     </div>
   </section>
 
@@ -1240,6 +1257,28 @@
     let lastDeadline = 0;
     let knownEventKeys = new Set();
 
+
+    async function refreshProduction() {
+      const box = $('prodBox');
+      if (!box) return;
+      try {
+        const h = await api('/api/health');
+        box.textContent = JSON.stringify({
+          llm: h.llm,
+          officialPathReady: h.llm?.officialPathReady ?? false,
+          kilnKeyConfigured: h.llm?.kilnKeyConfigured ?? false,
+          furiosaPath: h.furiosaPath,
+          contract: h.contractAddress,
+          note: h.llm?.officialPathReady
+            ? 'Kiln official path is live.'
+            : 'Local demo may use Kimi. Switch LLM_PROVIDER=kiln + KILN_API_KEY for Furiosa official inference.',
+          aa: 'See docs/AA_SESSION_KEY.md — ISessionCapability is the stable rule surface.',
+        }, null, 2);
+      } catch (e) {
+        box.textContent = e.message;
+      }
+    }
+
     // --- Bridge Lab ---
     function setWorkflowLit(zone) {
       ['zoneAuto','zoneGuard','zoneHitl'].forEach(id => $(id)?.classList.remove('lit'));
@@ -1271,6 +1310,7 @@
         if (btn.dataset.tab === 'ctx' || btn.dataset.tab === 'priv') refreshAgentContext().catch(() => {});
         if (btn.dataset.tab === 'sec') refreshSecurity().catch(() => {});
         if (btn.dataset.tab === 'sov') refreshSovereignty();
+        if (btn.dataset.tab === 'prod') refreshProduction().catch(() => {});
       });
     });
 
@@ -1559,6 +1599,7 @@
         await refreshPolicy();
         await loadEvents(true);
         await refreshSecurity().catch(() => {});
+        await refreshProduction().catch(() => {});
         await sleep(800);
 
         // 3 Guard: over-budget deny (success)
