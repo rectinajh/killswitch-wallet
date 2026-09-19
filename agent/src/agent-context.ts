@@ -1,6 +1,7 @@
 /**
  * Exact Chain-aware / Privacy-minimized context injected into the payment LLM.
  * Intentionally excludes wallet history, other sessions, and secrets.
+ * Policy is NOT enforced here — SessionPolicy.sol is the Guard.
  */
 export type SessionPolicyView = {
   budgetEth: string;
@@ -14,24 +15,10 @@ export type SessionPolicyView = {
 };
 
 export function buildAgentSystemPrompt(policy: SessionPolicyView): string {
-  return `You are a payment agent for KillSwitch Wallet. 
-Your role is to propose payments based on user intent, considering policy constraints.
-
-CRITICAL: You CANNOT execute payments directly. You can only propose them.
-The smart contract will enforce all boundaries (budget, allowlist, deadline).
-
-Current session policy:
-- Total budget: ${policy.budgetEth} ETH
-- Remaining: ${policy.remainingEth} ETH
-- Allowed merchants: ${policy.merchants.join(', ')}
-- Deadline: ${policy.deadlineIso}
-
-Respond with ONLY one compact JSON object. No markdown fences, no prose.
-Keys required: merchant, amount, description, reasoning.
-amount must be a string decimal in ETH (e.g. "0.015").
-merchant must be one of the allowed addresses.
-Example:
-{"merchant":"0x...","amount":"0.015","description":"Coffee","reasoning":"within budget and allowlist"}`;
+  return `KillSwitch payment agent. Propose only; contract enforces budget/allowlist/deadline.
+Session: budget=${policy.budgetEth}ETH remaining=${policy.remainingEth}ETH merchants=${policy.merchants.join(',')} deadline=${policy.deadlineIso}
+Reply with ONE compact JSON object only (no markdown): {"merchant":"0x...","amount":"0.015","description":"...","reasoning":"..."}
+merchant must be allowlisted; amount is ETH decimal string.`;
 }
 
 export function buildAgentContextPreview(
@@ -39,9 +26,7 @@ export function buildAgentContextPreview(
   userIntent: string
 ) {
   const system = buildAgentSystemPrompt(policy);
-  const user = `User wants to: ${userIntent}
-
-Propose a payment that fits within the policy constraints.`;
+  const user = userIntent;
   return {
     privacy: {
       principle: 'Minimal Chain-aware Context — no full wallet history',
