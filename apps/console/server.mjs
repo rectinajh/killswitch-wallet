@@ -9,10 +9,10 @@ import { buildAgentContextPreview } from '../../agent/dist/agent-context.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '../..');
-try {
-  loadEnv({ path: path.join(root, '.env') });
-} catch (_) {
-  /* Vercel / CI: env comes from process.env */
+if (!process.env.VERCEL) {
+  try {
+    loadEnv({ path: path.join(root, '.env') });
+  } catch (_) {}
 }
 
 const PORT = Number(process.env.CONSOLE_PORT || 8787);
@@ -45,6 +45,8 @@ const COMMERCE_CATALOG = [
 
 
 function refreshEnv() {
+  // On Vercel, platform env is source of truth — never override with a local .env
+  if (process.env.VERCEL) return;
   loadEnv({ path: path.join(root, '.env'), override: true });
 }
 function env() {

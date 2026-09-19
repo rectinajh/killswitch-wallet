@@ -1,0 +1,10 @@
+.env
+.env.*
+!.env.example
+.demo-logs
+node_modules
+**/node_modules
+.git
+.DS_Store
+*.png
+preview*.png
