@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>KillSwitch Console</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0b0f14; --panel:#121821; --line:#243041; --text:#e8eef7; --muted:#93a0b4; --ok:#3ddc97; --bad:#ff6b6b; --acc:#6ea8fe; }
+    * { box-sizing: border-box; }
+    body { margin:0; font:14px/1.45 ui-sans-serif, system-ui, -apple-system, sans-serif; background:radial-gradient(1200px 600px at 10% -10%, #1a2740, var(--bg)); color:var(--text); }
+    header { padding:20px 24px; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; gap:16px; align-items:center; }
+    h1 { margin:0; font-size:18px; letter-spacing:.02em; }
+    .sub { color:var(--muted); font-size:12px; }
+    main { display:grid; grid-template-columns: 1.1fr 1fr; gap:16px; padding:16px 24px 40px; }
+    @media (max-width: 960px) { main { grid-template-columns:1fr; } }
+    .card { background:rgba(18,24,33,.92); border:1px solid var(--line); border-radius:14px; padding:16px; }
+    .card h2 { margin:0 0 12px; font-size:14px; color:var(--acc); text-transform:uppercase; letter-spacing:.08em; }
+    label { display:block; color:var(--muted); font-size:12px; margin:10px 0 4px; }
+    input, textarea, select, button { width:100%; border-radius:10px; border:1px solid var(--line); background:#0d131c; color:var(--text); padding:10px 12px; }
+    textarea { min-height:72px; resize:vertical; }
+    button { cursor:pointer; background:linear-gradient(180deg,#2b4c7e,#1d3358); border-color:#35598f; font-weight:600; }
+    button.danger { background:linear-gradient(180deg,#7a2e2e,#5a1f1f); border-color:#a04545; }
+    button.ghost { background:#0d131c; }
+    .row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .actions { display:flex; gap:8px; margin-top:12px; }
+    .actions button { width:auto; flex:1; }
+    pre { white-space:pre-wrap; word-break:break-word; background:#0a1018; border:1px solid var(--line); border-radius:10px; padding:12px; max-height:360px; overflow:auto; font-size:12px; color:#c9d4e5; }
+    .pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; border:1px solid var(--line); color:var(--muted); }
+    .pill.ok { color:var(--ok); border-color:#2f6b52; }
+    .pill.bad { color:var(--bad); border-color:#7a3a3a; }
+    .logline { margin:0 0 8px; padding-bottom:8px; border-bottom:1px dashed #243041; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>KillSwitch Console</h1>
+      <div class="sub">Agent proposes · Contract disposes · Evidence on-chain</div>
+    </div>
+    <div class="sub" id="status">connecting…</div>
+  </header>
+  <main>
+    <section class="card">
+      <h2>Session</h2>
+      <div class="row">
+        <div>
+          <label>Contract</label>
+          <input id="contract" readonly />
+        </div>
+        <div>
+          <label>Session ID</label>
+          <input id="sessionId" type="number" value="0" />
+        </div>
+      </div>
+      <div class="actions">
+        <button class="ghost" id="btnRefresh">Refresh policy</button>
+        <button class="danger" id="btnFreeze">Freeze</button>
+      </div>
+      <label>Policy</label>
+      <pre id="policy">—</pre>
+      <h2 style="margin-top:18px">Grant new session</h2>
+      <div class="row">
+        <div>
+          <label>Budget (ETH)</label>
+          <input id="budget" value="1" />
+        </div>
+        <div>
+          <label>Duration (sec)</label>
+          <input id="duration" value="3600" />
+        </div>
+      </div>
+      <label>Merchants (comma-separated)</label>
+      <input id="merchants" value="0x70997970C51812dc3A010C7d01b50e0d17dc79C8" />
+      <div class="actions">
+        <button id="btnGrant">Grant session</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Agent propose</h2>
+      <label>User intent</label>
+      <textarea id="intent">Buy coffee for 0.03 ETH</textarea>
+      <div class="actions">
+        <button id="btnPropose">Propose via Kiln mock/agent</button>
+        <button class="ghost" id="btnEvents">Load receipts</button>
+      </div>
+      <label>Result</label>
+      <pre id="result">—</pre>
+      <label>Receipt / audit trail</label>
+      <div id="events"></div>
+    </section>
+  </main>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    async function api(path, opts) {
+      const res = await fetch(path, {
+        headers: { 'Content-Type': 'application/json' },
+        ...opts,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || res.statusText);
+      return data;
+    }
+    function renderEvents(events) {
+      const box = $('events');
+      if (!events?.length) { box.innerHTML = '<div class="sub">No events</div>'; return; }
+      box.innerHTML = events.map(e => {
+        const cls = e.type === 'executed' ? 'ok' : 'bad';
+        return `<div class="logline"><span class="pill ${cls}">${e.type}</span> session ${e.sessionId} · ${e.merchant}<br/>amount ${e.amount}${e.reason ? ' · ' + e.reason : ''}<br/><span class="sub">${e.transactionHash || ''}</span></div>`;
+      }).join('');
+    }
+    async function refresh() {
+      const sid = Number($('sessionId').value || 0);
+      const data = await api(`/api/policy?sessionId=${sid}`);
+      $('contract').value = data.contractAddress;
+      $('policy').textContent = JSON.stringify(data.policy, null, 2);
+      $('status').textContent = `rpc ${data.rpcUrl} · mock=${data.mockMode}`;
+    }
+    $('btnRefresh').onclick = () => refresh().catch(e => $('policy').textContent = e.message);
+    $('btnFreeze').onclick = async () => {
+      try {
+        const sid = Number($('sessionId').value || 0);
+        const data = await api('/api/freeze', { method:'POST', body: JSON.stringify({ sessionId: sid }) });
+        $('result').textContent = JSON.stringify(data, null, 2);
+        await refresh();
+      } catch (e) { $('result').textContent = e.message; }
+    };
+    $('btnGrant').onclick = async () => {
+      try {
+        const merchants = $('merchants').value.split(',').map(s => s.trim()).filter(Boolean);
+        const data = await api('/api/grant', { method:'POST', body: JSON.stringify({
+          budgetEth: $('budget').value,
+          durationSec: Number($('duration').value),
+          merchants,
+        })});
+        $('sessionId').value = data.sessionId;
+        $('result').textContent = JSON.stringify(data, null, 2);
+        await refresh();
+      } catch (e) { $('result').textContent = e.message; }
+    };
+    $('btnPropose').onclick = async () => {
+      try {
+        const sid = Number($('sessionId').value || 0);
+        const data = await api('/api/propose', { method:'POST', body: JSON.stringify({ sessionId: sid, intent: $('intent').value })});
+        $('result').textContent = JSON.stringify(data, null, 2);
+        await refresh();
+        const ev = await api(`/api/events?sessionId=${sid}`);
+        renderEvents(ev.events);
+      } catch (e) { $('result').textContent = e.message; }
+    };
+    $('btnEvents').onclick = async () => {
+      try {
+        const sid = Number($('sessionId').value || 0);
+        const ev = await api(`/api/events?sessionId=${sid}`);
+        renderEvents(ev.events);
+      } catch (e) { $('events').textContent = e.message; }
+    };
+    refresh().catch(e => $('status').textContent = e.message);
+  </script>
+</body>
+</html>

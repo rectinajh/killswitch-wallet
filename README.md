@@ -242,3 +242,23 @@ cp -n .env.example .env   # quote USER_INTENT
 ./demos/03-merchant-denied.sh
 ./demos/04-freeze-session.sh
 ```
+
+## Acceptance mapping (Furiosa Challenge B)
+
+| Criterion | Where it shows |
+|---|---|
+| Declared function & user need | This README § Declared Function |
+| Workflow user → outcome | `demos/` + `apps/console` |
+| Agent task vs code | Table above; contract enforces |
+| Boundaries & stopping (≥2 out-of-scope runs) | `02-budget-exceeded`, `03-merchant-denied`, `04-freeze-session` |
+| Kiln `gpt-oss-120b` | `agent/src/kiln-client.ts` (mock without key; real when `KILN_API_KEY` set); token usage logged per flow |
+| On-chain tx + hash | Every demo prints tx hash; events `PaymentExecuted` / `PaymentDenied` |
+| Human approve / watch / stop / receipt | Console grant/freeze/events; `scripts/audit-session.sh` |
+| Third-party reconstructability | On-chain policy + event logs only |
+
+## Web console
+
+```bash
+node apps/console/server.mjs
+# http://127.0.0.1:8787
+```
