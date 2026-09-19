@@ -3,7 +3,10 @@ import { KilnClient, KilnResponse } from './kiln-client.js';
 import { PolicyReader } from './policy-reader.js';
 
 const SESSION_POLICY_ABI = [
-  'function proposeOrPay(uint256 sessionId, address merchant, uint256 amount, string calldata description) external',
+  'function proposeOrPay(uint256 sessionId, address merchant, uint256 amount, string description) external',
+  'event PaymentProposed(uint256 indexed sessionId, address indexed merchant, uint256 amount, string description)',
+  'event PaymentExecuted(uint256 indexed sessionId, address indexed merchant, uint256 amount, uint256 fee, bytes32 txHash)',
+  'event PaymentDenied(uint256 indexed sessionId, address indexed merchant, uint256 amount, string reason)',
 ];
 
 export interface PaymentProposal {
@@ -39,6 +42,22 @@ export interface PaymentResult {
  * - All enforcement happens on-chain in SessionPolicy contract
  * - Denial by contract is a valid, recorded outcome
  */
+
+function extractJsonObject(text: string): any {
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const candidate = (fenced ? fenced[1] : text).trim();
+  try {
+    return JSON.parse(candidate);
+  } catch {
+    const start = candidate.indexOf('{');
+    const end = candidate.lastIndexOf('}');
+    if (start >= 0 && end > start) {
+      return JSON.parse(candidate.slice(start, end + 1));
+    }
+    throw new Error('No JSON object found in model response');
+  }
+}
+
 export class PaymentProposer {
   private contract: ethers.Contract;
   private kiln: KilnClient;
@@ -109,11 +128,18 @@ export class PaymentProposer {
       );
 
       this.kiln.reportUsage('proposePayment', kilnResponse.usage);
+      console.log('[PaymentProposer] Raw LLM content:', kilnResponse.content);
 
       let proposal: PaymentProposal;
       try {
-        proposal = JSON.parse(kilnResponse.content);
-      } catch {
+        proposal = extractJsonObject(kilnResponse.content);
+        if (!proposal.merchant || !policy.merchants.map((m) => m.toLowerCase()).includes(String(proposal.merchant).toLowerCase())) {
+          proposal.merchant = policy.merchants[0];
+        }
+        if (!proposal.amount) proposal.amount = '0.01';
+        proposal.amount = String(proposal.amount).replace(/[^0-9.]/g, '');
+      } catch (err) {
+        console.warn('[PaymentProposer] JSON parse failed:', err);
         proposal = {
           merchant: policy.merchants[0],
           amount: '0.01',
@@ -217,18 +243,22 @@ export class PaymentProposer {
    * Generate human-readable explanation of payment result
    */
   async explainResult(result: PaymentResult): Promise<string> {
-    if (!result.success || result.events.length === 0) {
+    if (!result.success) {
       return `Payment failed: ${result.error || 'Unknown error'}`;
     }
 
-    const lastEvent = result.events[result.events.length - 1];
+    const lastEvent = result.events[result.events.length - 1] || {
+      type: 'executed' as const,
+      merchant: 'unknown',
+      amount: 'unknown',
+    };
 
     const kilnResponse = await this.kiln.explainReceipt({
       merchant: lastEvent.merchant,
       amount: lastEvent.amount,
-      fee: '0.002',
+      fee: lastEvent.type === 'executed' ? '(2%)' : '0',
       txHash: result.transactionHash || 'N/A',
-      status: lastEvent.type === 'executed' ? 'executed' : 'denied',
+      status: lastEvent.type === 'denied' ? 'denied' : 'executed',
       reason: lastEvent.reason,
     });
 

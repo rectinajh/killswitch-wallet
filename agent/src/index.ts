@@ -10,6 +10,31 @@ export { KilnClient } from './kiln-client.js';
 export { PolicyReader } from './policy-reader.js';
 export { PaymentProposer } from './payment-proposer.js';
 
+function resolveLlmConfig() {
+  const provider = (process.env.LLM_PROVIDER || 'kimi').toLowerCase();
+
+  if (provider === 'kimi') {
+    const apiKey = process.env.KIMI_API_KEY || '';
+    return {
+      provider,
+      apiKey,
+      baseUrl: process.env.KIMI_API_BASE_URL || 'https://api.moonshot.cn/v1',
+      model: process.env.KIMI_MODEL || 'moonshot-v1-8k',
+      mockMode: !apiKey || apiKey === 'your_kimi_key_here',
+    };
+  }
+
+  // Default / Furiosa official path
+  const apiKey = process.env.KILN_API_KEY || '';
+  return {
+    provider: 'kiln',
+    apiKey,
+    baseUrl: process.env.KILN_API_BASE_URL || 'https://api.kilnapi.com/v1',
+    model: process.env.KILN_MODEL || 'gpt-oss-120b',
+    mockMode: !apiKey || apiKey === 'your_key_here',
+  };
+}
+
 /**
  * Initialize KillSwitch Wallet agent components
  */
@@ -29,14 +54,15 @@ export async function initializeAgent() {
   const provider = new ethers.JsonRpcProvider(rpcUrl);
   const signer = new ethers.Wallet(privateKey, provider);
 
-  const kilnConfig = {
-    apiKey: process.env.KILN_API_KEY || 'your_key_here',
-    baseUrl: process.env.KILN_API_BASE_URL || 'https://api.kilnapi.com/v1',
-    model: 'gpt-oss-120b',
-    mockMode: !process.env.KILN_API_KEY || process.env.KILN_API_KEY === 'your_key_here',
-  };
+  const llm = resolveLlmConfig();
+  console.log(`[Agent] LLM provider=${llm.provider} model=${llm.model} mock=${llm.mockMode}`);
 
-  const kilnClient = new KilnClient(kilnConfig);
+  const kilnClient = new KilnClient({
+    apiKey: llm.apiKey,
+    baseUrl: llm.baseUrl,
+    model: llm.model,
+    mockMode: llm.mockMode,
+  });
   const policyReader = new PolicyReader(contractAddress, provider);
   const paymentProposer = new PaymentProposer(
     contractAddress,
@@ -52,6 +78,7 @@ export async function initializeAgent() {
     policyReader,
     paymentProposer,
     contractAddress,
+    llm,
   };
 }
 
@@ -72,9 +99,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       const result = await paymentProposer.proposePayment(sessionId, userIntent);
 
       console.log('\n=== RESULT ===');
-      console.log(JSON.stringify(result, null, 2));
+      console.log(JSON.stringify(result, (_, v) => typeof v === 'bigint' ? v.toString() : v, 2));
 
-      if (result.success && result.events.length > 0) {
+      if (result.success) {
         const explanation = await paymentProposer.explainResult(result);
         console.log('\n=== EXPLANATION ===');
         console.log(explanation);

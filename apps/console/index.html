@@ -114,7 +114,7 @@
       const data = await api(`/api/policy?sessionId=${sid}`);
       $('contract').value = data.contractAddress;
       $('policy').textContent = JSON.stringify(data.policy, null, 2);
-      $('status').textContent = `rpc ${data.rpcUrl} · mock=${data.mockMode}`;
+      $('status').textContent = `rpc ${data.rpcUrl} · ${data.provider||'llm'}:${data.model||''} · mock=${data.mockMode}`;
     }
     $('btnRefresh').onclick = () => refresh().catch(e => $('policy').textContent = e.message);
     $('btnFreeze').onclick = async () => {

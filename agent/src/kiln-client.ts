@@ -32,14 +32,26 @@ export interface KilnResponse {
  * - Throughput: 50+ requests/sec per NPU instance
  * - Cost: ~10x cheaper than cloud GPU for this model size
  */
+function extractMessageText(message: any): string {
+  if (!message) return '';
+  if (typeof message.content === 'string' && message.content.trim()) return message.content;
+  if (typeof message.reasoning_content === 'string' && message.reasoning_content.trim()) {
+    return message.reasoning_content;
+  }
+  return '';
+}
+
 export class KilnClient {
   private client: AxiosInstance;
   private config: KilnConfig;
   private mockMode: boolean;
+  private temperature: number;
 
   constructor(config: KilnConfig) {
     this.config = config;
     this.mockMode = config.mockMode || !config.apiKey || config.apiKey === 'your_key_here';
+    const tEnv = process.env.LLM_TEMPERATURE;
+    this.temperature = tEnv !== undefined ? Number(tEnv) : 1;
 
     if (!this.mockMode) {
       this.client = axios.create({
@@ -81,13 +93,12 @@ Current session policy:
 - Allowed merchants: ${sessionPolicy.merchants.join(', ')}
 - Deadline: ${sessionPolicy.deadline.toISOString()}
 
-Respond with a JSON object:
-{
-  "merchant": "0x...",
-  "amount": "0.1",
-  "description": "Coffee at Starbucks",
-  "reasoning": "User requested coffee, Starbucks is on allowlist, amount within budget"
-}`;
+Respond with ONLY one compact JSON object. No markdown fences, no prose.
+Keys required: merchant, amount, description, reasoning.
+amount must be a string decimal in ETH (e.g. "0.015").
+merchant must be one of the allowed addresses.
+Example:
+{"merchant":"0x...","amount":"0.015","description":"Coffee","reasoning":"within budget and allowlist"}`;
 
     const messages: ChatMessage[] = [
       { role: 'system', content: systemPrompt },
@@ -102,15 +113,15 @@ Respond with a JSON object:
       const response = await this.client.post('/chat/completions', {
         model: this.config.model,
         messages: messages,
-        temperature: 0.7,
-        max_tokens: 500,
+        temperature: this.temperature,
+        max_tokens: 1200,
       });
 
       const choice = response.data.choices[0];
       const usage = response.data.usage;
 
       return {
-        content: choice.message.content,
+        content: extractMessageText(choice.message),
         usage: {
           promptTokens: usage.prompt_tokens,
           completionTokens: usage.completion_tokens,
@@ -164,15 +175,15 @@ Transaction Hash: ${transaction.txHash}`;
       const response = await this.client.post('/chat/completions', {
         model: this.config.model,
         messages: messages,
-        temperature: 0.5,
-        max_tokens: 300,
+        temperature: this.temperature,
+        max_tokens: 1200,
       });
 
       const choice = response.data.choices[0];
       const usage = response.data.usage;
 
       return {
-        content: choice.message.content,
+        content: extractMessageText(choice.message),
         usage: {
           promptTokens: usage.prompt_tokens,
           completionTokens: usage.completion_tokens,

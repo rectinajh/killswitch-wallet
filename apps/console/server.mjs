@@ -60,10 +60,15 @@ const server = http.createServer(async (req, res) => {
       const provider = new ethers.JsonRpcProvider(RPC_URL);
       const c = getContract(provider);
       const p = await c.getSessionPolicy(sessionId);
-      const mockMode = !process.env.KILN_API_KEY || process.env.KILN_API_KEY === 'your_key_here';
+      const llmProvider = (process.env.LLM_PROVIDER || 'kimi').toLowerCase();
+      const mockMode = llmProvider === 'kimi'
+        ? (!process.env.KIMI_API_KEY || process.env.KIMI_API_KEY === 'your_kimi_key_here')
+        : (!process.env.KILN_API_KEY || process.env.KILN_API_KEY === 'your_key_here');
       return send(res, 200, {
         rpcUrl: RPC_URL,
         contractAddress: CONTRACT_ADDRESS,
+        provider: llmProvider,
+        model: llmProvider === 'kimi' ? (process.env.KIMI_MODEL || 'kimi-k2.6') : (process.env.KILN_MODEL || 'gpt-oss-120b'),
         mockMode,
         policy: {
           owner: p[0],
