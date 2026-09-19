@@ -110,7 +110,8 @@ async function getDemoAmounts(provider) {
     autoProposeAmount: '0.0003',
     // 0.000495 + 2% = 0.0005049 > 0.0005
     boundaryBudget: '0.0005',
-    boundaryForce: '0.000495',
+    // 0.0006 + 2% = 0.000612 > 0.0005 → PaymentDenied
+    boundaryForce: '0.0006',
     merchantBudget: '0.0005',
     merchantForce: '0.0001',
     coffeeQuote: '0.0003',
