@@ -1,9 +1,8 @@
 /**
- * Console entry. On Vercel, `vercel-build` runs `assemble-server.sh` which cats
- * server.part1.mjs.txt + server.part2.mjs.txt → this file before deploy.
- * Locally: `npm run assemble-console` (or `bash apps/console/assemble-server.sh`).
+ * Console entry (Vercel + local). `vercel-build` / `npm run assemble-console` runs
+ * assemble-server.sh which cats server.part1.mjs.txt + server.part2.mjs.txt →
+ * server.assembled.mjs. This file re-exports that handler.
  */
-import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -23,7 +22,3 @@ if (!fs.existsSync(assembled) || process.env.FORCE_ASSEMBLE === '1') {
 const mod = await import(pathToFileURL(assembled).href);
 export const handler = mod.handler;
 export default mod.default ?? mod.handler;
-
-if (!process.env.VERCEL && mod.default) {
-  // listen is inside assembled file when run directly; this loader only re-exports for Vercel
-}
