@@ -684,34 +684,7 @@
       100% { text-shadow: 2px 0 var(--cyan), -2px 0 var(--magenta); }
     }
 
-    /* handbook-align */
-    .map-strip {
-      margin: 12px 28px 0;
-      padding: 12px 14px;
-      border-radius: 12px;
-      border: 1px solid rgba(0,246,255,0.2);
-      background: rgba(0, 20, 36, 0.55);
-      font-size: 12px;
-      color: var(--muted);
-      line-height: 1.55;
-    }
-    .map-strip strong { color: var(--cyan); }
-    .map-strip a { color: var(--cyan); }
-    .map-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 8px;
-      margin-top: 8px;
-    }
-    @media (max-width: 960px) { .map-grid { grid-template-columns: 1fr 1fr; } }
-    .map-item {
-      padding: 8px 10px;
-      border-radius: 10px;
-      background: rgba(0,0,0,0.35);
-      border: 1px solid rgba(0,246,255,0.12);
-    }
-    .map-item .k { color: var(--cyan); font-size: 11px; font-weight: 700; letter-spacing: 0.04em; }
-    .map-item .v { color: var(--text); margin-top: 4px; font-size: 12px; }
+    /* handbook-align: dual + tool perms */
     .dual {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -805,18 +778,6 @@
       <div class="en">Machine-checkable policy. Agent proposes; contract guards; deny is success; user can freeze.</div>
     </article>
   </section>
-
-  <div class="map-strip">
-    <strong>对照 AI × Web3 Handbook</strong>
-    · 赛道标签：钱包与权限 / AI 安全 / Agentic Commerce
-    · 参考：<a href="https://aiweb3.school/zh/handbook/" target="_blank" rel="noopener">aiweb3.school/zh/handbook</a>
-    <div class="map-grid">
-      <div class="map-item"><div class="k">Session Key</div><div class="v">= 本项目 SessionPolicy（预算·白名单·期限）</div></div>
-      <div class="map-item"><div class="k">Policy</div><div class="v">链上可机检条件，不是提示词</div></div>
-      <div class="map-item"><div class="k">Guard</div><div class="v">越权 → PaymentDenied（成功结果）</div></div>
-      <div class="map-item"><div class="k">HITL</div><div class="v">Freeze / Kill 由用户执行，模型不可覆盖</div></div>
-    </div>
-  </div>
 
   <section class="guide" id="demoGuide">
     <div class="guide-top">
