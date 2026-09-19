@@ -1343,7 +1343,7 @@
       const box = $('prodBox');
       if (!box) return;
       try {
-        const h = await api('/api/health');
+        const h = await api('/api/health').then(h => { if (h?.demoAmounts) { window.__demoAmounts = h.demoAmounts; if ($('budget') && h.demoAmounts.local === false) $('budget').value = h.demoAmounts.autoGrant; } return h; });
         box.textContent = JSON.stringify({
           llm: h.llm,
           officialPathReady: h.llm?.officialPathReady ?? false,
