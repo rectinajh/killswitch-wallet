@@ -66,6 +66,21 @@ Narrative strip on the console maps: **Session Key · Policy · Guard · HITL**.
 | `demos/agent-boundary.mjs` | Automated over-budget + off-allowlist |
 | `README.md` | Handbook alignment table |
 
+## Bridge Lab (on console)
+
+Open the **Bridge Lab** tabs under the scenario strip:
+
+| Tab | Prove in ≤15s |
+|-----|----------------|
+| Chain-aware Context | Refresh — only session policy in LLM prompt |
+| Web3 Tool Use | Permission matrix (Freeze/Close = owner only) |
+| Agent Workflow | Auto / Guard / HITL zones light during 60s demo |
+| Machine Payment | Budget / spent / whitelist shops + timeline |
+| Verifiable AI | Dual pane + match label after Propose/Deny |
+| AI Security | Deny scoreboard (`PaymentDenied` reasons) |
+| AI Sovereignty | Freeze vs Close table + live session state |
+| AI Privacy | Include/exclude chips + same context preview |
+
 ## Pass criteria for judges
 
 1. Can explain Session Key ≠ master key in one sentence  

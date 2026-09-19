@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { config as loadEnv } from 'dotenv';
 import { ethers } from 'ethers';
 import { initializeAgent, feeWei, totalCostWei, feePercentLabel } from '../../agent/dist/index.js';
+import { buildAgentContextPreview } from '../../agent/dist/agent-context.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '../..');
@@ -122,6 +123,61 @@ const server = http.createServer(async (req, res) => {
       const html = fs.readFileSync(path.join(__dirname, 'index.html'));
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
       return res.end(html);
+    }
+
+
+    if (req.method === 'GET' && url.pathname === '/api/agent-context') {
+      const sessionId = Number(url.searchParams.get('sessionId') || 0);
+      const intent = url.searchParams.get('intent') || 'Buy coffee for 0.02 ETH';
+      const provider = new ethers.JsonRpcProvider(RPC_URL);
+      const c = getContract(provider);
+      const pol = await c.getSessionPolicy(sessionId);
+      const budget = pol[1];
+      const spent = pol[2];
+      const remaining = budget - spent;
+      const preview = buildAgentContextPreview({
+        sessionId,
+        budgetEth: ethers.formatEther(budget),
+        spentEth: ethers.formatEther(spent),
+        remainingEth: ethers.formatEther(remaining),
+        merchants: pol[4],
+        deadlineIso: new Date(Number(pol[3]) * 1000).toISOString(),
+        frozen: pol[5],
+        active: pol[6],
+      }, intent);
+      return send(res, 200, {
+        ...preview,
+        chainAware: true,
+        note: 'This is the ONLY policy context the LLM receives for propose — Chain-aware + Privacy-minimized',
+      });
+    }
+
+
+    if (req.method === 'GET' && url.pathname === '/api/security-summary') {
+      const sessionId = Number(url.searchParams.get('sessionId') || 0);
+      const { policyReader } = await initializeAgent();
+      const events = await policyReader.getPaymentHistory(sessionId, 0);
+      const enriched = events.map(enrichEvent);
+      const denied = enriched.filter((e) => e.type === 'denied');
+      const executed = enriched.filter((e) => e.type === 'executed');
+      const proposed = enriched.filter((e) => e.type === 'proposed');
+      const reasons = {};
+      for (const d of denied) {
+        const r = d.reason || 'unknown';
+        reasons[r] = (reasons[r] || 0) + 1;
+      }
+      return send(res, 200, {
+        sessionId,
+        counts: {
+          proposed: proposed.length,
+          executed: executed.length,
+          denied: denied.length,
+        },
+        denyReasons: reasons,
+        securityThesis: 'Even if the LLM is induced to overspend or leave the allowlist, Guard emits PaymentDenied — deny is a success outcome.',
+        lastDenied: denied.length ? denied[denied.length - 1] : null,
+        lastExecuted: executed.length ? executed[executed.length - 1] : null,
+      });
     }
 
     if (req.method === 'GET' && url.pathname === '/api/health') {

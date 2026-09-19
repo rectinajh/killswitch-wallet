@@ -1,4 +1,5 @@
 import axios, { AxiosInstance } from 'axios';
+import { buildAgentSystemPrompt } from './agent-context.js';
 
 export interface KilnConfig {
   apiKey: string;
@@ -81,24 +82,12 @@ export class KilnClient {
     },
     userIntent: string
   ): Promise<KilnResponse> {
-    const systemPrompt = `You are a payment agent for KillSwitch Wallet. 
-Your role is to propose payments based on user intent, considering policy constraints.
-
-CRITICAL: You CANNOT execute payments directly. You can only propose them.
-The smart contract will enforce all boundaries (budget, allowlist, deadline).
-
-Current session policy:
-- Total budget: ${sessionPolicy.budget} ETH
-- Remaining: ${sessionPolicy.remaining} ETH
-- Allowed merchants: ${sessionPolicy.merchants.join(', ')}
-- Deadline: ${sessionPolicy.deadline.toISOString()}
-
-Respond with ONLY one compact JSON object. No markdown fences, no prose.
-Keys required: merchant, amount, description, reasoning.
-amount must be a string decimal in ETH (e.g. "0.015").
-merchant must be one of the allowed addresses.
-Example:
-{"merchant":"0x...","amount":"0.015","description":"Coffee","reasoning":"within budget and allowlist"}`;
+    const systemPrompt = buildAgentSystemPrompt({
+      budgetEth: sessionPolicy.budget,
+      remainingEth: sessionPolicy.remaining,
+      merchants: sessionPolicy.merchants,
+      deadlineIso: sessionPolicy.deadline.toISOString(),
+    });
 
     const messages: ChatMessage[] = [
       { role: 'system', content: systemPrompt },

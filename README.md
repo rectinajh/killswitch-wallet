@@ -44,6 +44,8 @@ KillSwitch maps directly onto the [AI × Web3 School Handbook](https://aiweb3.sc
 | **AI Privacy (minimal)** | Prompt context = current session policy summary only | `agent/src` kiln / proposer prompts |
 | **Account Abstraction (narrative)** | SessionPolicy is a minimal, demoable subset of Smart Account session modules | ARCHITECTURE.md |
 
+**Console Bridge Lab:** tabs for Chain-aware Context (live LLM prompt preview), Tool Use matrix, Workflow zones, Machine Payment timeline, Verifiable AI match, Security deny scoreboard, Sovereignty Freeze vs Close, Privacy include/exclude — all bound to the active session.
+
 **Frontier track tags (for pitch):** Wallet & Permission (primary) · AI Security (secondary) · Agentic Commerce (scenario).
 
 **Canonical Handbook demo contrast (already implemented):**

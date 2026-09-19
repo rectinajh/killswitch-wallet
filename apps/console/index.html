@@ -788,6 +788,123 @@
     }
     .bridge-item .bk { color: var(--magenta); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
     .bridge-item .bv { color: var(--muted); margin-top: 4px; line-height: 1.45; }
+
+    .bridge-lab {
+      margin: 12px 28px 0;
+      padding: 14px 16px;
+      border-radius: 16px;
+      border: 1px solid rgba(255,43,214,0.22);
+      background: rgba(6,10,20,0.72);
+    }
+    .bridge-lab > h3 {
+      margin: 0 0 10px;
+      font-size: 12px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--magenta);
+    }
+    .bridge-tabs {
+      display: flex; flex-wrap: wrap; gap: 6px;
+      margin-bottom: 12px;
+    }
+    .bridge-tabs button {
+      width: auto; flex: 0 0 auto;
+      padding: 7px 12px;
+      font-size: 11px;
+      background: rgba(0,0,0,0.4);
+      border-color: rgba(0,246,255,0.2);
+    }
+    .bridge-tabs button.active {
+      border-color: var(--cyan);
+      box-shadow: 0 0 12px rgba(0,246,255,0.2);
+      color: var(--cyan);
+    }
+    .bridge-panel { display: none; }
+    .bridge-panel.active { display: block; animation: slideIn 0.3s ease; }
+    .bridge-panel h4 {
+      margin: 0 0 8px;
+      font-size: 13px;
+      color: var(--cyan);
+    }
+    .bridge-panel p.desc {
+      margin: 0 0 10px;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .matrix {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    .matrix th, .matrix td {
+      border: 1px solid rgba(0,246,255,0.15);
+      padding: 8px 10px;
+      text-align: left;
+    }
+    .matrix th { color: var(--cyan); background: rgba(0,246,255,0.06); }
+    .matrix td { color: #d0deef; }
+    .wf {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    @media (max-width: 900px) { .wf { grid-template-columns: 1fr; } }
+    .wf .zone {
+      padding: 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(0,246,255,0.18);
+      background: rgba(0,0,0,0.35);
+      min-height: 90px;
+    }
+    .wf .zone.auto { border-color: rgba(57,255,182,0.35); }
+    .wf .zone.guard { border-color: rgba(255,61,110,0.4); }
+    .wf .zone.hitl { border-color: rgba(255,209,102,0.4); }
+    .wf .zone.lit {
+      box-shadow: 0 0 0 1px rgba(0,246,255,0.35), 0 0 18px rgba(0,246,255,0.15);
+    }
+    .wf .zone .zk { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 6px; }
+    .wf .zone.auto .zk { color: var(--ok); }
+    .wf .zone.guard .zk { color: var(--bad); }
+    .wf .zone.hitl .zk { color: var(--warn); }
+    .wf .zone ul { margin: 0; padding-left: 16px; color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .ctx-box, .sec-box, .sov-box {
+      font-family: var(--mono);
+      font-size: 11px;
+      line-height: 1.5;
+      color: #d7e6f7;
+      background: #0a1220;
+      border: 1px solid rgba(0,246,255,0.18);
+      border-radius: 10px;
+      padding: 10px;
+      max-height: 220px;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .pill-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+    .match-ok { color: var(--ok); }
+    .match-bad { color: var(--bad); }
+    .timeline {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-top: 8px;
+    }
+    @media (max-width: 900px) { .timeline { grid-template-columns: 1fr 1fr; } }
+    .tl-step {
+      padding: 8px;
+      border-radius: 10px;
+      border: 1px dashed rgba(0,246,255,0.25);
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .tl-step.done {
+      border-style: solid;
+      border-color: rgba(57,255,182,0.45);
+      color: var(--text);
+    }
+    .tl-step .tn { color: var(--cyan); font-weight: 700; display: block; margin-bottom: 4px; }
   </style>
 </head>
 <body>
@@ -858,22 +975,120 @@
       ② Agent 代付咖啡成功（Executed）→
       ③ 诱导超额 / 陌生商家 → PaymentDenied →
       ④ 你 Freeze 停权，或 Close 退款收工。
-      这就是 Furiosa「Agent 花钱可控」的最小完整故事。
+      这就是 Furiosa「Agent 花钱可控」+ Handbook「Agentic Commerce」的最小完整故事：发现白名单商家 → 代付 → 链上凭证；越权必拒。
     </p>
   </section>
 
-  <div class="bridge-grid" aria-label="Bridge 概念落地">
-    <div class="bridge-item"><div class="bk">Chain-aware Context</div><div class="bv">模型只看见当前 session 的预算/白名单/期限（Policy 面板），不瞎编额度。</div></div>
-    <div class="bridge-item"><div class="bk">Web3 Tool Use</div><div class="bv">查策略自动 · Propose 受 Session 约束 · Freeze/Close 仅 owner。</div></div>
-    <div class="bridge-item"><div class="bk">Agent Workflow</div><div class="bv">代付提议可自动；越权由合约拦；停权/退款必须你来点。</div></div>
-    <div class="bridge-item"><div class="bk">Machine Payment</div><div class="bv">小额、白名单、有期限的机器代付；拒绝也留下可审计收据。</div></div>
-    <div class="bridge-item"><div class="bk">Verifiable AI</div><div class="bv">下方双栏：模型说了什么 / 合约判了什么（含 tx）。</div></div>
-    <div class="bridge-item"><div class="bk">AI Security</div><div class="bv">即使模型被诱导越权，Guard 仍 Deny — 安全论据可演示。</div></div>
-    <div class="bridge-item"><div class="bk">AI Sovereignty</div><div class="bv">Freeze 停权；Close 关闭会话并退回剩余预算。</div></div>
-    <div class="bridge-item"><div class="bk">AI Privacy</div><div class="bv">不注入整本钱包历史，只给当前 session 策略摘要。</div></div>
-  </div>
+  <section class="bridge-lab" id="bridgeLab">
+    <h3>Bridge Lab · 概念落地（可点开每一项）</h3>
+    <div class="bridge-tabs" id="bridgeTabs">
+      <button type="button" class="active" data-tab="ctx">Chain-aware Context</button>
+      <button type="button" data-tab="tools">Web3 Tool Use</button>
+      <button type="button" data-tab="flow">Agent Workflow</button>
+      <button type="button" data-tab="pay">Machine Payment</button>
+      <button type="button" data-tab="verif">Verifiable AI</button>
+      <button type="button" data-tab="sec">AI Security</button>
+      <button type="button" data-tab="sov">AI Sovereignty</button>
+      <button type="button" data-tab="priv">AI Privacy</button>
+    </div>
 
-  <section class="guide" id="demoGuide">
+    <div class="bridge-panel active" id="tab-ctx">
+      <h4>Chain-aware Context · Agent 此刻看见什么</h4>
+      <p class="desc">Policy 面板即模型唯一可信链上上下文。下面实时预览 Propose 时注入 LLM 的内容（不含钱包历史）。</p>
+      <div class="actions" style="margin-top:0">
+        <button type="button" class="ghost" id="btnRefreshCtx">刷新 Agent 上下文</button>
+      </div>
+      <pre class="ctx-box" id="agentCtxBox">选择 session 后自动加载…</pre>
+    </div>
+
+    <div class="bridge-panel" id="tab-tools">
+      <h4>Web3 Tool Use · 工具权限矩阵</h4>
+      <p class="desc">不是「Agent 什么都能调」。查询自动；支付受 Session；主权操作仅 owner。</p>
+      <table class="matrix">
+        <thead><tr><th>工具</th><th>谁可调用</th><th>约束</th><th>失败时</th></tr></thead>
+        <tbody>
+          <tr><td>读 Policy / 事件</td><td>Agent · Console</td><td>只读链上状态</td><td>显示 RPC 错误</td></tr>
+          <tr><td>Propose 支付</td><td>Agent（经 Console）</td><td>必须挂在有效 Session</td><td>合约 Deny 或 revert</td></tr>
+          <tr><td>Force boundary</td><td>评委演示</td><td>故意越权以证明 Guard</td><td><code>PaymentDenied</code>（成功）</td></tr>
+          <tr><td>Freeze (Kill)</td><td>仅 Owner</td><td>HITL · 模型不可调用</td><td>已冻结则不可再花</td></tr>
+          <tr><td>Close / 退款</td><td>仅 Owner</td><td>关闭会话并退剩余预算</td><td>会话 inactive</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="bridge-panel" id="tab-flow">
+      <h4>Agent Workflow · 自动 / Guard / 人工</h4>
+      <p class="desc">自动演示时对应区域会高亮。越权不靠模型自觉，靠合约。</p>
+      <div class="wf" id="workflowZones">
+        <div class="zone auto" id="zoneAuto"><div class="zk">Auto</div><ul><li>读 Policy</li><li>Propose（额度内）</li><li>写双栏证据</li></ul></div>
+        <div class="zone guard" id="zoneGuard"><div class="zk">Contract Guard</div><ul><li>预算 + 2% fee</li><li>白名单商家</li><li>期限 / 冻结</li><li>Deny = 成功</li></ul></div>
+        <div class="zone hitl" id="zoneHitl"><div class="zk">Human-in-the-loop</div><ul><li>Grant Session</li><li>Freeze Kill</li><li>Close 退款</li></ul></div>
+      </div>
+    </div>
+
+    <div class="bridge-panel" id="tab-pay">
+      <h4>Machine Payment · 小额代付结算</h4>
+      <p class="desc">Furiosa 题面：Agent 代付白名单商家。当前 session 结算视图随 Policy 刷新。</p>
+      <div class="metrics" id="payMetrics">
+        <div class="metric"><div class="k">可花额度</div><div class="v" id="payBudget">—</div></div>
+        <div class="metric"><div class="k">已代付</div><div class="v" id="paySpent">—</div></div>
+        <div class="metric"><div class="k">剩余</div><div class="v" id="payRemain">—</div></div>
+      </div>
+      <label>白名单商家（可收款）</label>
+      <div class="chips" id="payMerchants"></div>
+      <div class="timeline" id="commerceTimeline">
+        <div class="tl-step" id="tl1"><span class="tn">① 授权</span>Grant Session Key</div>
+        <div class="tl-step" id="tl2"><span class="tn">② 代付成功</span>PaymentExecuted</div>
+        <div class="tl-step" id="tl3"><span class="tn">③ 越权拒绝</span>PaymentDenied</div>
+        <div class="tl-step" id="tl4"><span class="tn">④ 停权/退款</span>Freeze 或 Close</div>
+      </div>
+    </div>
+
+    <div class="bridge-panel" id="tab-verif">
+      <h4>Verifiable AI · 提议 vs 裁决</h4>
+      <p class="desc">与 Agent 区双栏同步。这里给出匹配结论：模型意图是否落在链上结果里。</p>
+      <div class="pill-row" id="verifPills"></div>
+      <pre class="ctx-box" id="verifBox">先 Propose 或跑自动演示…</pre>
+    </div>
+
+    <div class="bridge-panel" id="tab-sec">
+      <h4>AI Security · Deny 成绩单</h4>
+      <p class="desc">对抗路径的价值：证明 Prompt Injection / 工具滥用也撞上 Guard。</p>
+      <pre class="sec-box" id="secBox">加载中…</pre>
+    </div>
+
+    <div class="bridge-panel" id="tab-sov">
+      <h4>AI Sovereignty · 停权 vs 退款</h4>
+      <p class="desc">Freeze = 暂停花费；Close = 结束会话并把剩余预算退回 owner。</p>
+      <table class="matrix">
+        <thead><tr><th></th><th>Freeze (Kill)</th><th>Close / 退款</th></tr></thead>
+        <tbody>
+          <tr><td>会话状态</td><td>frozen=true，仍可查</td><td>active=false，结束</td></tr>
+          <tr><td>剩余预算</td><td>锁在合约内</td><td>退回 owner 地址</td></tr>
+          <tr><td>Agent</td><td>无法再成功花费</td><td>会话已关闭</td></tr>
+          <tr><td>谁能点</td><td>仅 owner（HITL）</td><td>仅 owner（HITL）</td></tr>
+        </tbody>
+      </table>
+      <pre class="sov-box" id="sovBox">当前 session 主权状态将显示在这里…</pre>
+    </div>
+
+    <div class="bridge-panel" id="tab-priv">
+      <h4>AI Privacy · 最小上下文</h4>
+      <p class="desc">绿色 = 允许进入模型；红色 = 永不注入。与上方 Agent 上下文同源。</p>
+      <div class="pill-row">
+        <span class="pill ok">预算 / 剩余</span>
+        <span class="pill ok">白名单商家</span>
+        <span class="pill ok">期限</span>
+        <span class="pill ok">本轮用户意图</span>
+        <span class="pill bad">其它 session</span>
+        <span class="pill bad">完整交易史</span>
+        <span class="pill bad">私钥 / API Key</span>
+      </div>
+      <pre class="ctx-box" id="privBox">刷新 Agent 上下文后显示 include/exclude…</pre>
+    </div>
+  </section>
+
+  <section class="guide" id="demoGuide" id="demoGuide">
     <div class="guide-top">
       <h3>演示引导 · 点按钮自动跑四段（Grant → Propose → Deny → Freeze）</h3>
       <button type="button" class="primary-cta" id="btnStartDemo" title="自动执行：Grant → Propose → Over-budget Deny → Freeze">开始 60 秒演示（自动）</button>
@@ -1025,8 +1240,155 @@
     let lastDeadline = 0;
     let knownEventKeys = new Set();
 
+    // --- Bridge Lab ---
+    function setWorkflowLit(zone) {
+      ['zoneAuto','zoneGuard','zoneHitl'].forEach(id => $(id)?.classList.remove('lit'));
+      if (zone === 'auto') $('zoneAuto')?.classList.add('lit');
+      if (zone === 'guard') $('zoneGuard')?.classList.add('lit');
+      if (zone === 'hitl') $('zoneHitl')?.classList.add('lit');
+      if (zone === 'all') {
+        $('zoneAuto')?.classList.add('lit');
+        $('zoneGuard')?.classList.add('lit');
+        $('zoneHitl')?.classList.add('lit');
+      }
+    }
+
+    function markTimeline(n) {
+      for (let i = 1; i <= 4; i++) {
+        const el = $('tl' + i);
+        if (!el) continue;
+        el.classList.toggle('done', i <= n);
+      }
+    }
+
+    document.querySelectorAll('#bridgeTabs button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#bridgeTabs button').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.bridge-panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        const tab = $('tab-' + btn.dataset.tab);
+        if (tab) tab.classList.add('active');
+        if (btn.dataset.tab === 'ctx' || btn.dataset.tab === 'priv') refreshAgentContext().catch(() => {});
+        if (btn.dataset.tab === 'sec') refreshSecurity().catch(() => {});
+        if (btn.dataset.tab === 'sov') refreshSovereignty();
+      });
+    });
+
+    async function refreshAgentContext() {
+      const intent = $('intent')?.value || 'Buy coffee for 0.02 ETH';
+      const data = await api(`/api/agent-context?sessionId=${sid()}&intent=${encodeURIComponent(intent)}`);
+      const sys = data.messages?.find(m => m.role === 'system')?.content || '';
+      const user = data.messages?.find(m => m.role === 'user')?.content || '';
+      if ($('agentCtxBox')) {
+        $('agentCtxBox').textContent =
+          `session ${data.sessionId} · ~${data.approxChars} chars\n` +
+          `${data.note || ''}\n\n--- SYSTEM (policy only) ---\n${sys}\n\n--- USER ---\n${user}`;
+      }
+      if ($('privBox') && data.privacy) {
+        $('privBox').textContent = JSON.stringify(data.privacy, null, 2) +
+          `\n\nincluded → model\nexcluded → never sent`;
+      }
+      return data;
+    }
+
+    async function refreshSecurity() {
+      const data = await api(`/api/security-summary?sessionId=${sid()}`);
+      if ($('secBox')) {
+        $('secBox').textContent = JSON.stringify({
+          thesis: data.securityThesis,
+          counts: data.counts,
+          denyReasons: data.denyReasons,
+          lastDenied: data.lastDenied && {
+            reason: data.lastDenied.reason,
+            merchant: data.lastDenied.merchant,
+            amount: data.lastDenied.amountEth || data.lastDenied.amount,
+            tx: data.lastDenied.transactionHash,
+          },
+          lastExecuted: data.lastExecuted && {
+            merchant: data.lastExecuted.merchant,
+            amount: data.lastExecuted.amountEth || data.lastExecuted.amount,
+            tx: data.lastExecuted.transactionHash,
+          },
+        }, null, 2);
+      }
+      return data;
+    }
+
+    function refreshSovereignty(policy) {
+      const box = $('sovBox');
+      if (!box) return;
+      const p = policy || window.__lastPolicy;
+      if (!p) { box.textContent = '尚无 policy — 先 Grant 或 Refresh'; return; }
+      box.textContent = JSON.stringify({
+        sessionId: sid(),
+        active: p.active,
+        frozen: p.frozen,
+        remainingEth: p.remainingEth,
+        advice: p.frozen
+          ? '已 Freeze：Agent 无法再花费。若要退回剩余预算，点 Close/退款。'
+          : (!p.active
+            ? '会话已 Close：预算应已退回 owner。'
+            : '会话活跃：可 Continue 代付，或 Freeze 停权，或 Close 退款收工。'),
+      }, null, 2);
+    }
+
+    function updatePayFromPolicy(p) {
+      if ($('payBudget')) $('payBudget').textContent = fmtEth(p.budgetEth);
+      if ($('paySpent')) $('paySpent').textContent = fmtEth(p.spentEth);
+      if ($('payRemain')) $('payRemain').textContent = fmtEth(p.remainingEth);
+      if ($('payMerchants')) {
+        $('payMerchants').innerHTML = (p.merchants || []).map(m =>
+          `<span class="chip" title="${m}">店·${m.slice(0,6)}…${m.slice(-4)}</span>`
+        ).join('') || '<span class="tagline">无白名单商家</span>';
+      }
+    }
+
+    function updateVerifiable(data) {
+      const box = $('verifBox');
+      const pills = $('verifPills');
+      if (!box) return;
+      const proposal = data?.proposal || data?.result?.proposal;
+      const events = data?.events || data?.result?.events || [];
+      const denied = events.find(e => e.type === 'denied');
+      const executed = events.find(e => e.type === 'executed');
+      let match = 'pending';
+      let detail = {};
+      if (proposal && executed) {
+        const sameMerchant = String(proposal.merchant).toLowerCase() === String(executed.merchant).toLowerCase();
+        match = sameMerchant ? 'aligned_executed' : 'merchant_mismatch';
+        detail = { proposal, onChain: executed, match };
+      } else if (proposal && denied) {
+        match = 'guard_denied_success';
+        detail = {
+          proposal,
+          onChain: denied,
+          match,
+          note: 'Model proposed; contract denied — Verifiable disagreement is the security feature',
+        };
+      } else {
+        detail = { proposal: proposal || null, events };
+      }
+      if (pills) {
+        const cls = match.includes('denied') || match === 'aligned_executed' ? 'ok' : (match === 'pending' ? 'cyan' : 'bad');
+        pills.innerHTML = `<span class="pill ${cls}">${match}</span>`;
+      }
+      box.textContent = JSON.stringify(detail, null, 2);
+    }
+
+    // wrap renderDualEvidence if present
+    const __prevRenderDual = typeof renderDualEvidence === 'function' ? renderDualEvidence : null;
+    // will patch after renderDualEvidence definition via later replace
+
+    if ($('btnRefreshCtx')) {
+      $('btnRefreshCtx').onclick = () => refreshAgentContext().catch(e => {
+        if ($('agentCtxBox')) $('agentCtxBox').textContent = e.message;
+      });
+    }
+
+
 
     function renderDualEvidence(data) {
+      try { updateVerifiable(data); } catch (_) {}
       const llmEl = $('llmPane');
       const chainEl = $('chainPane');
       const pane = $('paneChainDecision');
@@ -1154,6 +1516,8 @@
       try {
         // 1 Grant Session Key
         setGuideStep(1);
+        setWorkflowLit('hitl');
+        markTimeline(0);
         $('coachText').innerHTML = '<strong>自动演示 1/4：</strong>正在 Grant Session Key（额度 · 白名单 · 期限）…';
         toast('自动演示', '1/4 Grant Session Key', true);
         const merchants = ($('merchants').value || '')
@@ -1172,12 +1536,15 @@
         setSid(grant.sessionId);
         $('result').textContent = JSON.stringify(grant, null, 2);
         markDone(1);
+        markTimeline(1);
         await refreshSessions();
         await refreshPolicy();
+        await refreshAgentContext().catch(() => {});
         await sleep(600);
 
         // 2 In-limit Propose
         setGuideStep(2);
+        setWorkflowLit('auto');
         $('coachText').innerHTML = '<strong>自动演示 2/4：</strong>正在 Propose 正常支付（可能要等 LLM 几秒到几十秒）…';
         toast('自动演示', '2/4 Propose 正常支付', true);
         $('intent').value = 'Buy coffee for 0.02 ETH';
@@ -1188,12 +1555,15 @@
         $('result').textContent = JSON.stringify(prop, null, 2);
         if (typeof renderDualEvidence === 'function') renderDualEvidence(prop);
         markDone(2);
+        markTimeline(2);
         await refreshPolicy();
         await loadEvents(true);
+        await refreshSecurity().catch(() => {});
         await sleep(800);
 
         // 3 Guard: over-budget deny (success)
         setGuideStep(3);
+        setWorkflowLit('guard');
         $('coachText').innerHTML = '<strong>自动演示 3/4：</strong>Over-budget — 期待 PaymentDenied（拒绝=成功）…';
         toast('自动演示', '3/4 Guard 越权拒绝', true);
         const boundary = await api('/api/demo/boundary', {
@@ -1205,13 +1575,16 @@
         if (typeof renderDualEvidence === 'function') renderDualEvidence(boundary);
         setMeaning('合约拒绝了越权支付 — 边界在链上强制，不在 prompt。PaymentDenied 是成功结果。', true);
         markDone(3);
+        markTimeline(3);
         await refreshSessions();
         await refreshPolicy();
         await loadEvents(true);
+        await refreshSecurity().catch(() => {});
         await sleep(800);
 
         // 4 Freeze / HITL revoke
         setGuideStep(4);
+        setWorkflowLit('hitl');
         $('coachText').innerHTML = '<strong>自动演示 4/4：</strong>Freeze = 吊销 Session Key…';
         toast('自动演示', '4/4 Freeze 撤销', true);
         const sidNow = sid();
@@ -1222,10 +1595,14 @@
         $('result').textContent = JSON.stringify(frozen, null, 2);
         setMeaning('会话已冻结：用户紧急停止生效，Agent 无法再推进支付。');
         markDone(4);
+        markTimeline(4);
         clearFocus();
+        setWorkflowLit('all');
         await refreshPolicy();
-        $('coachText').innerHTML = '<strong>演示完成：</strong>代付授权 → 成功支付 → Guard 拒绝越权 → Freeze。还可点 Close/退款收回剩余预算。';
-        toast('60 秒演示完成', '四段路径已跑通', true);
+        await refreshSecurity().catch(() => {});
+        await refreshAgentContext().catch(() => {});
+        $('coachText').innerHTML = '<strong>演示完成：</strong>代付授权 → 成功支付 → Guard 拒绝越权 → Freeze。还可点 Close/退款收回剩余预算。打开 Bridge Lab 查看每一项落地。';
+        toast('60 秒演示完成', '四段路径已跑通 · Bridge Lab 已刷新', true);
       } catch (e) {
         toast('自动演示中断', e.message || String(e));
         $('result').textContent = e.message || String(e);
@@ -1321,6 +1698,9 @@
 
       lastDeadline = p.deadline;
       tickCountdown();
+      window.__lastPolicy = p;
+      updatePayFromPolicy(p);
+      refreshSovereignty(p);
     }
 
     function tickCountdown() {
@@ -1581,6 +1961,8 @@
       try {
         await refreshPolicy();
         await loadEvents();
+        await refreshAgentContext().catch(() => {});
+        await refreshSecurity().catch(() => {});
       } catch (e) {
         $('result').textContent = e.message;
       }
