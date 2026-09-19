@@ -1,5 +1,10 @@
 # KillSwitch Wallet
 
+[![CI](https://github.com/rectinajh/killswitch-wallet/workflows/CI/badge.svg)](https://github.com/rectinajh/killswitch-wallet/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Solidity](https://img.shields.io/badge/Solidity-0.8.24-blue.svg)](https://soliditylang.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.4-blue.svg)](https://www.typescriptlang.org/)
+
 **Furiosa Challenge B (GWDC 2026 Korea)** — AI Agent spending controls & records (cypherpunk)
 
 ## Declared Function

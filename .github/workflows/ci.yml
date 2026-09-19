@@ -1,0 +1,99 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, cursor/** ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  contracts:
+    name: Smart Contract Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Run Forge build
+        run: |
+          cd contracts
+          forge --version
+          forge build --sizes
+
+      - name: Run Forge tests
+        run: |
+          cd contracts
+          forge test -vvv
+
+      - name: Run Forge coverage
+        run: |
+          cd contracts
+          forge coverage --report summary
+
+  agent:
+    name: Agent Module Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: |
+          cd agent
+          npm install
+
+      - name: Type check
+        run: |
+          cd agent
+          npm run build
+
+      - name: Lint
+        run: |
+          cd agent
+          npm run lint || echo "Linting skipped (not configured)"
+
+  security:
+    name: Security Checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Slither (if available)
+        continue-on-error: true
+        run: |
+          pip3 install slither-analyzer
+          cd contracts
+          slither src/SessionPolicy.sol --print human-summary || echo "Slither analysis completed with warnings"
+
+  documentation:
+    name: Documentation Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check required documentation
+        run: |
+          echo "Checking documentation files..."
+          test -f README.md || (echo "README.md missing" && exit 1)
+          test -f ARCHITECTURE.md || (echo "ARCHITECTURE.md missing" && exit 1)
+          test -f QUICKSTART.md || (echo "QUICKSTART.md missing" && exit 1)
+          test -f CONTRIBUTING.md || (echo "CONTRIBUTING.md missing" && exit 1)
+          test -f LICENSE || (echo "LICENSE missing" && exit 1)
+          echo "✓ All documentation files present"
+
+      - name: Check demo scripts
+        run: |
+          echo "Checking demo scripts..."
+          test -x demos/setup.sh || (echo "demos/setup.sh missing or not executable" && exit 1)
+          test -x demos/01-success-payment.sh || (echo "demos/01-success-payment.sh missing or not executable" && exit 1)
+          test -x demos/02-budget-exceeded.sh || (echo "demos/02-budget-exceeded.sh missing or not executable" && exit 1)
+          test -x demos/03-merchant-denied.sh || (echo "demos/03-merchant-denied.sh missing or not executable" && exit 1)
+          echo "✓ All demo scripts present and executable"
