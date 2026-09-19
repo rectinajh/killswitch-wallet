@@ -1,41 +1,24 @@
 #!/bin/bash
-set -e
+source "$(dirname "$0")/_lib.sh"
+require_contract
 
 echo "=================================================="
 echo "Demo 1: Successful Payment Within Policy"
 echo "=================================================="
-echo ""
 
-source .env
-
-echo "Step 1: Reading session policy..."
-POLICY=$(cast call $CONTRACT_ADDRESS "getSessionPolicy(uint256)(address,uint256,uint256,uint256,address[],bool,bool)" 0 --rpc-url $RPC_URL)
-echo "✓ Policy retrieved"
-echo ""
-
-echo "Step 2: Agent proposes payment for coffee..."
-echo "User Intent: 'Buy a coffee for 0.05 ETH'"
-echo ""
-
-SESSION_ID=0 USER_INTENT="Buy a coffee for 0.05 ETH" node agent/dist/index.js > /tmp/demo1-output.log 2>&1 || true
+FROM=$(latest_block)
+echo "Step 1: proposeOrPay 0.05 ETH to allowlisted merchant"
+AMOUNT=50000000000000000
+TX=$(propose_pay 0 "$MERCHANT2" "$AMOUNT" "Coffee purchase")
+echo "✓ tx: $TX"
 
 echo ""
-echo "Step 3: Checking transaction outcome..."
-echo ""
+echo "Step 2: on-chain events"
+show_payment_events "$FROM"
 
-EVENTS=$(cast logs --address $CONTRACT_ADDRESS --from-block latest:1 --rpc-url $RPC_URL)
-echo "$EVENTS" | grep -A5 "PaymentExecuted" && echo "✓ Payment EXECUTED successfully!" || echo "Payment was denied (check logs)"
-
+SPENT=$(spent_of 0)
 echo ""
-echo "Step 4: Transaction receipt..."
-cat /tmp/demo1-output.log
-
-echo ""
-echo "Step 5: Verify on-chain evidence..."
-SPENT=$(cast call $CONTRACT_ADDRESS "getSessionPolicy(uint256)(address,uint256,uint256,uint256,address[],bool,bool)" 0 --rpc-url $RPC_URL | awk 'NR==3')
-echo "Budget spent: $SPENT wei"
-
-echo ""
+echo "Spent after success: $SPENT wei (expect ~0.051 ETH = 5.1e16)"
 echo "=================================================="
-echo "Demo 1 Complete: Payment authorized and recorded"
+echo "Demo 1 Complete"
 echo "=================================================="

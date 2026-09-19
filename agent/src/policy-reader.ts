@@ -1,4 +1,4 @@
-import { ethers } from 'ethers';
+import { ethers, EventLog } from 'ethers';
 
 const SESSION_POLICY_ABI = [
   'function getSessionPolicy(uint256 sessionId) view returns (address owner, uint256 budget, uint256 spent, uint256 deadline, address[] memory merchants, bool frozen, bool active)',
@@ -126,7 +126,8 @@ export class PolicyReader {
     );
 
     for (const event of executedEvents) {
-      const args = event.args;
+      const args = (event as EventLog).args;
+      if (!args) continue;
       events.push({
         type: 'executed',
         sessionId: Number(args.sessionId),
@@ -146,7 +147,8 @@ export class PolicyReader {
     );
 
     for (const event of deniedEvents) {
-      const args = event.args;
+      const args = (event as EventLog).args;
+      if (!args) continue;
       events.push({
         type: 'denied',
         sessionId: Number(args.sessionId),

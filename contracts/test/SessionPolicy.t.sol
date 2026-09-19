@@ -147,9 +147,7 @@ contract SessionPolicyTest is Test {
 
         vm.warp(block.timestamp + 3601); // Move past deadline
 
-        vm.expectEmit(true, true, false, true);
-        emit PaymentDenied(sessionId, merchant1, 0.1 ether, "Deadline expired");
-
+        vm.expectRevert(SessionPolicy.DeadlineExpired.selector);
         policy.proposeOrPay(sessionId, merchant1, 0.1 ether, "Late payment");
     }
 
@@ -168,7 +166,7 @@ contract SessionPolicyTest is Test {
         (, , , , , bool frozen, ) = policy.getSessionPolicy(sessionId);
         assertTrue(frozen);
 
-        vm.expectRevert(SessionPolicy.SessionFrozen.selector);
+        vm.expectRevert(SessionPolicy.SessionIsFrozen.selector);
         policy.proposeOrPay(sessionId, merchant1, 0.1 ether, "After freeze");
     }
 

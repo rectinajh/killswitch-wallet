@@ -14,9 +14,9 @@ fi
 source .env
 
 echo "Step 1: Checking Anvil is running..."
-if ! curl -s -X POST $RPC_URL \
+if ! curl -sf -X POST "$RPC_URL" \
   -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' > /dev/null; then
+  -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' | grep -q result; then
   echo "Error: Anvil not running. Start with: anvil"
   exit 1
 fi
@@ -34,6 +34,7 @@ fi
 DEPLOY_OUTPUT=$(forge create src/SessionPolicy.sol:SessionPolicy \
   --rpc-url $RPC_URL \
   --private-key $PRIVATE_KEY \
+  --broadcast \
   --json)
 
 CONTRACT_ADDRESS=$(echo $DEPLOY_OUTPUT | jq -r '.deployedTo')
@@ -83,9 +84,9 @@ if [ ! -d node_modules ]; then
   echo "Installing agent dependencies..."
   npm install
 fi
-npm run build
+npm run build || { echo "WARN: agent build failed; cast demos still work"; }
 cd ..
-echo "✓ Agent built"
+echo "✓ Agent step done"
 
 echo ""
 echo "=================================================="

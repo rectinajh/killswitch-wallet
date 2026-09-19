@@ -56,7 +56,7 @@ contract SessionPolicy {
 
     error Unauthorized();
     error SessionNotActive();
-    error SessionFrozen();
+    error SessionIsFrozen();
     error InsufficientBudget();
     error MerchantNotAllowed();
     error DeadlineExpired();
@@ -70,7 +70,7 @@ contract SessionPolicy {
     modifier sessionActive(uint256 sessionId) {
         Session storage s = sessions[sessionId];
         if (!s.active) revert SessionNotActive();
-        if (s.frozen) revert SessionFrozen();
+        if (s.frozen) revert SessionIsFrozen();
         if (block.timestamp > s.deadline) revert DeadlineExpired();
         _;
     }
