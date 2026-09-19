@@ -1,12 +1,12 @@
 import { ethers } from 'ethers';
-import { KilnClient, KilnResponse } from './kiln-client.js';
+import { KilnClient, KilnResponse, KilnUsage } from './kiln-client.js';
 import { PolicyReader } from './policy-reader.js';
 import { feeWei, totalCostWei, feePercentLabel } from './fees.js';
 
 const SESSION_POLICY_ABI = [
   'function proposeOrPay(uint256 sessionId, address merchant, uint256 amount, string description) external',
   'event PaymentProposed(uint256 indexed sessionId, address indexed merchant, uint256 amount, string description)',
-  'event PaymentExecuted(uint256 indexed sessionId, address indexed merchant, uint256 amount, uint256 fee, bytes32 txHash)',
+  'event PaymentExecuted(uint256 indexed sessionId, address indexed merchant, uint256 amount, uint256 fee, bytes32 receiptId)',
   'event PaymentDenied(uint256 indexed sessionId, address indexed merchant, uint256 amount, string reason)',
 ];
 
@@ -24,8 +24,10 @@ export interface ProposePaymentOptions {
   forceMerchant?: string;
   /** Allow proposing an off-allowlist merchant (do not remap to allowlist) */
   allowOffAllowlist?: boolean;
-  /** Skip LLM entirely and use forced/fallback values */
+  /** Skip LLM entirely and use forced/fallback values (adversarial demos only) */
   skipLlm?: boolean;
+  /** Call explainReceipt after propose (default true) */
+  explain?: boolean;
 }
 
 export interface PaymentEventDetail {
@@ -38,11 +40,33 @@ export interface PaymentEventDetail {
   totalCost?: string;
   totalCostWei?: string;
   reason?: string;
-  receiptHash?: string;
+  /** On-chain content receipt id (NOT the chain tx hash) */
+  receiptId?: string;
+}
+
+export interface TokenUsageSplit {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  mock?: boolean;
+}
+
+/** W3C-style commerce credential — chain tx hash only, never on-chain receiptId */
+export interface CommercePaymentCredential {
+  type: 'CommercePaymentCredential';
+  transactionHash: string;
+  chain: string;
+  chainId: number;
+  explorerUrl?: string;
+  sessionId: number;
+  merchant?: string;
+  amountEth?: string;
+  status: 'executed' | 'denied' | 'unknown';
 }
 
 export interface PaymentResult {
   success: boolean;
+  /** Ethers / RPC transaction hash — use this for explorer & CommercePaymentCredential */
   transactionHash?: string;
   error?: string;
   events: PaymentEventDetail[];
@@ -53,23 +77,15 @@ export interface PaymentResult {
     totalCostWei: string;
     totalCostEth: string;
   };
+  /** LLM explanation of outcome (when explain !== false) */
+  explanation?: string;
+  /** Token usage from propose and explain separately (for judges) */
   usage?: {
-    promptTokens: number;
-    completionTokens: number;
-    totalTokens: number;
+    propose?: TokenUsageSplit;
+    explain?: TokenUsageSplit;
   };
+  credential?: CommercePaymentCredential;
 }
-
-/**
- * PaymentProposer: Agent that proposes payments using Kiln LLM
- *
- * CRITICAL SECURITY BOUNDARY:
- * - Agent proposes payments via LLM reasoning
- * - Agent CANNOT execute payments directly
- * - All enforcement happens on-chain in SessionPolicy contract
- * - Denial by contract is a valid, recorded outcome
- * - Budget check on-chain uses amount + 2% fee (see feeWei)
- */
 
 function extractJsonObject(text: string): any {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
@@ -86,6 +102,64 @@ function extractJsonObject(text: string): any {
   }
 }
 
+function toUsageSplit(u?: KilnUsage): TokenUsageSplit | undefined {
+  if (!u) return undefined;
+  return {
+    promptTokens: u.promptTokens,
+    completionTokens: u.completionTokens,
+    totalTokens: u.totalTokens,
+    mock: u.mock,
+  };
+}
+
+export function resolveChainLabel(chainId: number): string {
+  const fromEnv = process.env.CHAIN_LABEL?.trim();
+  if (fromEnv) return fromEnv;
+  if (chainId === 31337) return 'anvil';
+  if (chainId === 11155111) return 'sepolia';
+  return `chain-${chainId}`;
+}
+
+export function explorerUrlForTx(chainId: number, txHash: string): string | undefined {
+  if (chainId === 11155111) {
+    return `https://sepolia.etherscan.io/tx/${txHash}`;
+  }
+  return undefined;
+}
+
+export function buildCommercePaymentCredential(
+  result: PaymentResult,
+  sessionId: number,
+  chainId: number
+): CommercePaymentCredential | undefined {
+  if (!result.transactionHash) return undefined;
+  const denied = result.events.find((e) => e.type === 'denied');
+  const executed = result.events.find((e) => e.type === 'executed');
+  const last = denied || executed;
+  return {
+    type: 'CommercePaymentCredential',
+    // ONLY ethers tx hash — never on-chain receiptId
+    transactionHash: result.transactionHash,
+    chain: resolveChainLabel(chainId),
+    chainId,
+    explorerUrl: explorerUrlForTx(chainId, result.transactionHash),
+    sessionId,
+    merchant: last?.merchant,
+    amountEth: last?.amount,
+    status: denied ? 'denied' : executed ? 'executed' : 'unknown',
+  };
+}
+
+/**
+ * PaymentProposer: Agent that proposes payments using Kiln LLM
+ *
+ * CRITICAL SECURITY BOUNDARY:
+ * - Agent proposes payments via LLM reasoning
+ * - Agent CANNOT execute payments directly
+ * - All enforcement happens on-chain in SessionPolicy contract
+ * - Denial by contract is a valid, recorded outcome
+ * - Budget check on-chain uses amount + 2% fee (see feeWei)
+ */
 export class PaymentProposer {
   private contract: ethers.Contract;
   private kiln: KilnClient;
@@ -108,15 +182,6 @@ export class PaymentProposer {
     this.policyReader = policyReader;
   }
 
-  /**
-   * Propose and attempt a payment based on user intent
-   *
-   * Flow:
-   * 1. Read current policy from contract
-   * 2. Use Kiln LLM to generate payment proposal (unless forced)
-   * 3. Submit proposal to contract (contract enforces amount+2% fee budget)
-   * 4. Parse events to determine outcome
-   */
   async proposePayment(
     sessionId: number,
     userIntent: string,
@@ -128,6 +193,7 @@ export class PaymentProposer {
         forceAmountEth: options.forceAmountEth,
         forceMerchant: options.forceMerchant,
         allowOffAllowlist: options.allowOffAllowlist,
+        skipLlm: options.skipLlm,
       });
     }
 
@@ -149,6 +215,7 @@ export class PaymentProposer {
       console.log('[PaymentProposer] Current policy:');
       console.log(`  Budget: ${ethers.formatEther(policy.budget)} ETH`);
       console.log(`  Remaining: ${ethers.formatEther(remaining)} ETH`);
+      console.log(`  Agent: ${policy.agent}`);
       console.log(`  Allowed merchants: ${policy.merchants.length}`);
       console.log(`  Deadline: ${deadline.toISOString()}`);
       console.log(`  Fee model: amount + ${feePercentLabel()} (budget checks totalCost)`);
@@ -160,7 +227,7 @@ export class PaymentProposer {
         options.skipLlm ||
         (options.forceAmountEth !== undefined && options.forceMerchant !== undefined);
 
-      if (forced) {
+      if (forced && options.skipLlm) {
         proposal = {
           merchant: options.forceMerchant || policy.merchants[0],
           amount: options.forceAmountEth || '0.01',
@@ -168,7 +235,7 @@ export class PaymentProposer {
           reasoning: 'Forced adversarial / demo proposal (skip LLM)',
         };
       } else {
-        console.log('[PaymentProposer] Calling Kiln LLM for proposal...');
+        console.log('[PaymentProposer] Calling LLM for proposal...');
         kilnResponse = await this.kiln.proposePayment(
           {
             budget: ethers.formatEther(policy.budget),
@@ -226,7 +293,7 @@ export class PaymentProposer {
       const fee = feeWei(amountWei);
       const total = totalCostWei(amountWei);
 
-      console.log('[PaymentProposer] LLM proposal:');
+      console.log('[PaymentProposer] Proposal:');
       console.log(`  Merchant: ${proposal.merchant}`);
       console.log(`  Amount: ${proposal.amount} ETH (${amountWei} wei)`);
       console.log(`  Fee (${feePercentLabel()}): ${ethers.formatEther(fee)} ETH (${fee} wei)`);
@@ -249,7 +316,7 @@ export class PaymentProposer {
 
       const events = this.parsePaymentEvents(receipt);
 
-      return {
+      const result: PaymentResult = {
         success: true,
         transactionHash: tx.hash,
         events,
@@ -261,8 +328,27 @@ export class PaymentProposer {
           totalCostWei: total.toString(),
           totalCostEth: ethers.formatEther(total),
         },
-        usage: kilnResponse?.usage,
+        usage: {
+          propose: toUsageSplit(kilnResponse?.usage),
+        },
       };
+
+      const network = await this.signer.provider?.getNetwork();
+      const chainId = network ? Number(network.chainId) : 31337;
+      result.credential = buildCommercePaymentCredential(result, sessionId, chainId);
+
+      if (options.explain !== false) {
+        try {
+          const { text, usage } = await this.explainResultWithUsage(result);
+          result.explanation = text;
+          if (!result.usage) result.usage = {};
+          result.usage.explain = usage;
+        } catch (explainErr) {
+          console.warn('[PaymentProposer] explainReceipt failed:', explainErr);
+        }
+      }
+
+      return result;
     } catch (error) {
       console.error('[PaymentProposer] Error:', error);
       return {
@@ -273,9 +359,6 @@ export class PaymentProposer {
     }
   }
 
-  /**
-   * Parse payment-related events from transaction receipt
-   */
   private parsePaymentEvents(receipt: ethers.TransactionReceipt): PaymentEventDetail[] {
     const events: PaymentEventDetail[] = [];
 
@@ -303,28 +386,30 @@ export class PaymentProposer {
           });
         } else if (parsed.name === 'PaymentExecuted') {
           const amountWei = parsed.args.amount as bigint;
-          const fee = parsed.args.fee as bigint;
+          const feeAmt = parsed.args.fee as bigint;
+          const receiptId =
+            parsed.args.receiptId ?? parsed.args[4];
           events.push({
             type: 'executed',
             merchant: parsed.args.merchant,
             amount: ethers.formatEther(amountWei),
             amountWei: amountWei.toString(),
-            fee: ethers.formatEther(fee),
-            feeWei: fee.toString(),
-            totalCost: ethers.formatEther(amountWei + fee),
-            totalCostWei: (amountWei + fee).toString(),
-            receiptHash: parsed.args.txHash,
+            fee: ethers.formatEther(feeAmt),
+            feeWei: feeAmt.toString(),
+            totalCost: ethers.formatEther(amountWei + feeAmt),
+            totalCostWei: (amountWei + feeAmt).toString(),
+            receiptId: receiptId,
           });
         } else if (parsed.name === 'PaymentDenied') {
           const amountWei = parsed.args.amount as bigint;
-          const fee = feeWei(amountWei);
+          const feeAmt = feeWei(amountWei);
           events.push({
             type: 'denied',
             merchant: parsed.args.merchant,
             amount: ethers.formatEther(amountWei),
             amountWei: amountWei.toString(),
-            fee: ethers.formatEther(fee),
-            feeWei: fee.toString(),
+            fee: ethers.formatEther(feeAmt),
+            feeWei: feeAmt.toString(),
             totalCost: ethers.formatEther(totalCostWei(amountWei)),
             totalCostWei: totalCostWei(amountWei).toString(),
             reason: parsed.args.reason,
@@ -338,12 +423,14 @@ export class PaymentProposer {
     return events;
   }
 
-  /**
-   * Generate human-readable explanation of payment result
-   */
-  async explainResult(result: PaymentResult): Promise<string> {
+  async explainResultWithUsage(
+    result: PaymentResult
+  ): Promise<{ text: string; usage: TokenUsageSplit }> {
     if (!result.success) {
-      return `Payment failed: ${result.error || 'Unknown error'}`;
+      return {
+        text: `Payment failed: ${result.error || 'Unknown error'}`,
+        usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, mock: true },
+      };
     }
 
     const lastEvent = result.events[result.events.length - 1] || {
@@ -359,6 +446,7 @@ export class PaymentProposer {
           ? `${result.proposal.feeEth} ETH (${result.proposal.feeWei} wei, ${feePercentLabel()})`
           : `0 (${feePercentLabel()} of amount)`;
 
+    // Pass ethers tx hash to explainer — not on-chain receiptId
     const kilnResponse = await this.kiln.explainReceipt({
       merchant: lastEvent.merchant,
       amount: lastEvent.amount,
@@ -370,6 +458,14 @@ export class PaymentProposer {
 
     this.kiln.reportUsage('explainReceipt', kilnResponse.usage);
 
-    return kilnResponse.content;
+    return {
+      text: kilnResponse.content,
+      usage: toUsageSplit(kilnResponse.usage)!,
+    };
+  }
+
+  async explainResult(result: PaymentResult): Promise<string> {
+    const { text } = await this.explainResultWithUsage(result);
+    return text;
   }
 }
