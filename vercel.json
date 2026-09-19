@@ -2,14 +2,18 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "installCommand": "npm install",
-  "buildCommand": "npm run vercel-build",
+  "buildCommand": "npm run vercel-build && mkdir -p public && cp -f apps/console/index.html public/index.html",
   "rewrites": [
-    { "source": "/(.*)", "destination": "/api" }
+    {
+      "source": "/(.*)",
+      "destination": "/api"
+    }
   ],
   "functions": {
     "api/index.mjs": {
       "maxDuration": 60,
       "includeFiles": "{apps/console/**,agent/dist/**}"
     }
-  }
+  },
+  "outputDirectory": "public"
 }
