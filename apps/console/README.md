@@ -16,7 +16,7 @@ node apps/console/server.mjs
 ## Panels
 
 - **Policy** — budget/spent/remaining bar, deadline countdown, merchant chips, frozen/active
-- **Agent** — intent + Propose; Over-budget / Off-allowlist boundary demos
+- **Agent** — intent + Propose; **LLM→Deny** Over-budget / Off-allowlist (primary); Forced skip (secondary)
 - **Chain** — receipt cards with fee (amount + 2%), reason, tx hash; Watch poll
 
 ## Fee model
@@ -34,6 +34,6 @@ Budget check uses **amount + 2% fee** (`(amount * 2) / 100` in `SessionPolicy.so
 | POST | `/api/grant` | Grant session |
 | POST | `/api/freeze` | Kill switch |
 | POST | `/api/propose` | Optional `forceAmountEth`, `forceMerchant`, `allowOffAllowlist` |
-| POST | `/api/demo/boundary` | `{ case: "budget" \| "merchant" }` |
+| POST | `/api/demo/boundary` | `{ case: "budget" \| "merchant", skipLlm?: boolean }` — default **LLM→Guard deny**; `skipLlm:true` = forced fast path |
 
 Uses `.env` (`RPC_URL`, `PRIVATE_KEY`, `CONTRACT_ADDRESS`). Optional Kiln `gpt-oss-120b` (`LLM_PROVIDER=kiln`); local demos often use `LLM_PROVIDER=kimi`.
