@@ -35,3 +35,4 @@ apps/console/start-console.sh
 .vercel
 .env*
 .env.local
+apps/console/server.assembled.mjs
