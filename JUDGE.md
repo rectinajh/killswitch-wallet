@@ -77,6 +77,9 @@ Narrative strip on the console maps: **Session Key · Policy · Guard · HITL** 
 
 ## LLM note
 
+**If you do not have a Furiosa Kiln / NPU kit key yet:** run with `LLM_PROVIDER=kimi` and a real `KIMI_API_KEY` so propose + explainReceipt still return live prompt/completion token splits (not mock). Switch to `LLM_PROVIDER=kiln` + `KILN_MODEL=gpt-oss-120b` as soon as the organizer key or onsite developer kit is available.
+
+
 - **Kiln path (default):** `gpt-oss-120b` (`LLM_PROVIDER=kiln`)
 - **Local build/demo:** may use Kimi (`LLM_PROVIDER=kimi`) — same propose→guard flow
 - Never commit `.env` / API keys
