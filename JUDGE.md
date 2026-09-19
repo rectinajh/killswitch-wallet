@@ -77,7 +77,7 @@ Narrative strip on the console maps: **Session Key · Policy · Guard · HITL** 
 
 ## LLM note
 
-- **Kiln path (optional):** `gpt-oss-120b` (`LLM_PROVIDER=kiln`)
+- **Kiln path (default):** `gpt-oss-120b` (`LLM_PROVIDER=kiln`)
 - **Local build/demo:** may use Kimi (`LLM_PROVIDER=kimi`) — same propose→guard flow
 - Never commit `.env` / API keys
 
@@ -114,4 +114,48 @@ Open the **Bridge Lab** tabs under the scenario strip:
 2. Can explain Session Key ≠ master key  
 3. Sees **Executed** and **Denied** as first-class outcomes  
 4. Sees user **Freeze / Close** as sovereignty  
-5. Can point to credential / on-chain events without trusting the model  
+5. Can point to credential / on-chain events without trusting the model
+
+---
+
+## Official LLM path · tokens · energy (no fabricated joules)
+
+| Item | Value |
+|------|--------|
+| Provider | **Kiln** (`LLM_PROVIDER=kiln`) |
+| Model | **gpt-oss-120b** |
+| Role | Short JSON propose + receipt explain |
+| Policy | **Not in the model** — `SessionPolicy.sol` Guards |
+
+### Capturing real prompt / completion split
+
+API JSON (`POST /api/propose`, `/api/commerce/checkout`, `/api/demo/boundary`, `/api/demo/success`) returns:
+
+```json
+"usage": {
+  "propose": { "promptTokens": N, "completionTokens": M, "totalTokens": N+M },
+  "explain": { "promptTokens": …, "completionTokens": …, "totalTokens": … }
+}
+```
+
+Also logged as `[KilnClient] API usage for …`. Mock mode labels `mock: true` with zero tokens — do not treat as real NPU usage.
+
+Prompts: short JSON; `reasoning_effort=low` when API accepts (retry without on 400).
+
+### Energy
+
+**No fabricated joules.** If no meter / kit measurement:
+
+> Energy: UNKNOWN — report tokens only.  
+> NPU board power draw assumed X W **only if from kit docs**; else UNKNOWN.
+
+Unverifiable “Nx cheaper than GPU” claims are not evidence — use measured tokens + stated kit assumptions.
+
+### Keys
+
+| Role | Env | Signs |
+|------|-----|--------|
+| Owner | `OWNER_PRIVATE_KEY` | grant / freeze / close |
+| Agent | `AGENT_PRIVATE_KEY` (alias `PRIVATE_KEY`) | proposeOrPay |
+
+On-chain `receiptId` ≠ chain tx hash. `CommercePaymentCredential.transactionHash` is the ethers tx hash only.
