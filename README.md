@@ -216,3 +216,29 @@ Demo Video: [Link to recorded demo]
 ---
 
 **Built with**: Foundry, TypeScript, Kiln NPU API, EVM (Anvil/Sepolia)
+
+
+## Local verification (Mac, 2026-09-20)
+
+Verified on Anvil without cloud agents:
+
+- `forge test`: **7/7 passed** (after renaming error `SessionIsFrozen` to avoid clashing with event `SessionFrozen`)
+- `./demos/setup.sh` requires Foundry **`--broadcast`** on `forge create`
+- Demos:
+  - `01-success-payment.sh` → `PaymentExecuted`, spent `5.1e16` wei for 0.05 ETH + 2% fee
+  - `02-budget-exceeded.sh` → `PaymentDenied` reason `Insufficient budget`, spent `0`
+  - `03-merchant-denied.sh` → `PaymentDenied` reason `Merchant not allowed`, spent `0`
+  - `04-freeze-session.sh` → `proposeOrPay` reverts with `SessionIsFrozen`
+- Agent mock mode works (`KILN_API_KEY` unset/placeholder): proposes then submits on-chain tx
+
+Quick path:
+
+```bash
+anvil --host 127.0.0.1 --port 8545 --block-time 1
+cp -n .env.example .env   # quote USER_INTENT
+./demos/setup.sh
+./demos/01-success-payment.sh
+./demos/02-budget-exceeded.sh
+./demos/03-merchant-denied.sh
+./demos/04-freeze-session.sh
+```
