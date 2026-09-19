@@ -3,6 +3,8 @@
 
 # KillSwitch Wallet — Judge Path (≈90 seconds)
 
+> **Booth ops:** [`docs/BOOTH_RUNBOOK.md`](docs/BOOTH_RUNBOOK.md) — warm session, latency, faucet, failover.
+
 **Core idea:** **Agentic Commerce（智能体商业）** — agent discovers, quotes, and pays under a Session Key; contract Guards; user keeps Freeze/Close.  
 **Handbook (optional vocabulary):** [AI × Web3 — Wallet / Permission · Agent Wallet](https://aiweb3.school/zh/handbook/)
 
@@ -61,8 +63,8 @@ RUN_AGENT_BOUNDARY=1 ./demos/run-all.sh   # includes LLM→contract deny paths
 |---|--------|--------|---------------------|
 | 1 | **Grant Session Key** | Policy → Grant session | New `sessionId`; budget / allowlist / deadline active |
 | 2 | **In-limit Checkout** | 情景 → Coffee Lane → **Checkout 代付** | Dual pane: LLM proposal + **PaymentExecuted**; paid credential |
-| 3a | **Guard: over-budget** | Agent → **Over-budget** | **PaymentDenied** (Insufficient budget) — **deny = success** |
-| 3b | **Guard: off-allowlist** | 情景 → **Shadow Shop** / Agent → **Off-allowlist** | **PaymentDenied** (Merchant not allowed) — **deny = success** |
+| 3a | **Guard: over-budget** | Agent → **LLM→Deny Over-budget** (primary) | Dual evidence: LLM propose + **PaymentDenied** — **deny = success** |
+| 3b | **Guard: off-allowlist** | Agent → **LLM→Deny Off-allowlist** (or Shadow Shop) | Dual evidence: LLM propose + **PaymentDenied** — **deny = success** |
 | 4 | **HITL revoke** | Policy → **Freeze (Kill)** | Session frozen; Agent cannot spend further |
 | 4b | **Close / refund** (optional) | Policy → **Close / 退款** | Session closed; remaining budget refunded to owner |
 
@@ -93,6 +95,7 @@ Narrative strip on the console maps: **Session Key · Policy · Guard · HITL** 
 | `agent/` | Propose via LLM; submit to contract |
 | `apps/console/` | Judge UI + commerce funnel + dual evidence |
 | `demos/agent-boundary.mjs` | Automated over-budget + off-allowlist |
+| `docs/BOOTH_RUNBOOK.md` | Booth warm-up, latency, faucet, failover |
 | `README.md` | Handbook alignment table |
 
 ## Bridge Lab (on console)
