@@ -31,9 +31,10 @@ if [ ! -f out/SessionPolicy.sol/SessionPolicy.json ]; then
   forge build
 fi
 
+OWNER_KEY="${OWNER_PRIVATE_KEY:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}"
 DEPLOY_OUTPUT=$(forge create src/SessionPolicy.sol:SessionPolicy \
   --rpc-url $RPC_URL \
-  --private-key $PRIVATE_KEY \
+  --private-key $OWNER_KEY \
   --broadcast \
   --json)
 
@@ -58,13 +59,18 @@ echo "Step 4: Creating initial demo session..."
 MERCHANT1="0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"  # Anvil account 0
 MERCHANT2="0x70997970C51812dc3A010C7d01b50e0d17dc79C8"  # Anvil account 1
 
+OWNER_KEY="${OWNER_PRIVATE_KEY:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}"
+AGENT_KEY="${AGENT_PRIVATE_KEY:-${PRIVATE_KEY:-0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d}}"
+AGENT_ADDR=$(cast wallet address --private-key "$AGENT_KEY")
+
 SESSION_TX=$(cast send $CONTRACT_ADDRESS \
-  "grantSession(uint256,uint256,address[])(uint256)" \
+  "grantSession(uint256,uint256,address,address[])(uint256)" \
   1000000000000000000 \
   3600 \
+  "$AGENT_ADDR" \
   "[$MERCHANT1,$MERCHANT2]" \
   --value 1ether \
-  --private-key $PRIVATE_KEY \
+  --private-key $OWNER_KEY \
   --rpc-url $RPC_URL \
   --json | jq -r '.transactionHash')
 

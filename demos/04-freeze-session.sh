@@ -11,12 +11,12 @@ TXG=$(grant_session 1000000000000000000 3600 "$MERCHANT2" 1)
 SID=$(next_session_id)
 echo "session=$SID grant=$TXG"
 cast send "$CONTRACT_ADDRESS" "freeze(uint256)" "$SID" \
-  --private-key "$PRIVATE_KEY" --rpc-url "$RPC_URL" --json | jq -r '.transactionHash' | awk '{print "freeze tx:",$0}'
+  --private-key "$OWNER_KEY" --rpc-url "$RPC_URL" --json | jq -r '.transactionHash' | awk '{print "freeze tx:",$0}'
 # expect revert on propose
 set +e
 OUT=$(cast send "$CONTRACT_ADDRESS" "proposeOrPay(uint256,address,uint256,string)" \
   "$SID" "$MERCHANT2" 10000000000000000 "after freeze" \
-  --private-key "$PRIVATE_KEY" --rpc-url "$RPC_URL" 2>&1)
+  --private-key "$AGENT_KEY" --rpc-url "$RPC_URL" 2>&1)
 RC=$?
 set -e
 echo "$OUT" | tail -20
