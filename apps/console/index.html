@@ -1063,11 +1063,24 @@
 
     <div class="bridge-panel active" id="tab-ctx">
       <h4>Chain-aware Context · Agent 此刻看见什么</h4>
-      <p class="desc">Policy 面板即模型唯一可信链上上下文。下面实时预览 Propose 时注入 LLM 的内容（不含钱包历史）。</p>
-      <div class="actions" style="margin-top:0">
-        <button type="button" class="ghost" id="btnRefreshCtx">刷新 Agent 上下文</button>
+      <p class="desc"><strong>一句话：</strong>模型只被允许看到「还能花多少 / 能付给谁 / 截止何时」，不能自己转账。下面三张卡就是它的全部视野。</p>
+      <div class="metrics" id="ctxCards">
+        <div class="metric"><div class="k">还能花</div><div class="v" id="ctxRemain">—</div></div>
+        <div class="metric"><div class="k">总预算</div><div class="v" id="ctxBudget">—</div></div>
+        <div class="metric"><div class="k">截止</div><div class="v" id="ctxDeadline">—</div></div>
       </div>
-      <pre class="ctx-box" id="agentCtxBox">选择 session 后自动加载…</pre>
+      <label>能付给谁（白名单）</label>
+      <div class="chips" id="ctxMerchants"></div>
+      <div class="pill-row" style="margin-top:10px">
+        <span class="pill ok">可：读策略 / 提议付款</span>
+        <span class="pill bad">不可：直接转账 / 改额度</span>
+        <span class="pill bad">不看：钱包历史 / 私钥</span>
+      </div>
+      <div class="actions" style="margin-top:8px">
+        <button type="button" class="ghost" id="btnRefreshCtx">刷新</button>
+        <button type="button" class="ghost" id="btnToggleRawCtx">显示原文 prompt</button>
+      </div>
+      <pre class="ctx-box" id="agentCtxBox" hidden></pre>
     </div>
 
     <div class="bridge-panel" id="tab-tools">
@@ -1516,19 +1529,36 @@
     async function refreshAgentContext() {
       const intent = $('intent')?.value || 'Buy coffee for 0.02 ETH';
       const data = await api(`/api/agent-context?sessionId=${sid()}&intent=${encodeURIComponent(intent)}`);
+      let remain = '—', budget = '—', deadline = '—', merchants = [];
+      try {
+        const pol = await api(`/api/policy?sessionId=${sid()}`);
+        const p = pol.policy;
+        remain = fmtEth(p.remainingEth);
+        budget = fmtEth(p.budgetEth);
+        deadline = p.deadlineIso ? p.deadlineIso.replace('T', ' ').slice(0, 19) : '—';
+        merchants = p.merchants || [];
+      } catch (_) {}
+      if ($('ctxRemain')) $('ctxRemain').textContent = remain;
+      if ($('ctxBudget')) $('ctxBudget').textContent = budget;
+      if ($('ctxDeadline')) $('ctxDeadline').textContent = deadline;
+      if ($('ctxMerchants')) {
+        $('ctxMerchants').innerHTML = merchants.length
+          ? merchants.map(m => `<span class="chip">${m.slice(0, 8)}…${m.slice(-4)}</span>`).join('')
+          : '<span class="tagline">无白名单</span>';
+      }
       const sys = data.messages?.find(m => m.role === 'system')?.content || '';
       const user = data.messages?.find(m => m.role === 'user')?.content || '';
       if ($('agentCtxBox')) {
         $('agentCtxBox').textContent =
           `session ${data.sessionId} · ~${data.approxChars} chars\n` +
-          `${data.note || ''}\n\n--- SYSTEM (policy only) ---\n${sys}\n\n--- USER ---\n${user}`;
+          `${data.note || ''}\n\n--- SYSTEM ---\n${sys}\n\n--- USER ---\n${user}`;
       }
       if ($('privBox') && data.privacy) {
-        $('privBox').textContent = JSON.stringify(data.privacy, null, 2) +
-          `\n\nincluded → model\nexcluded → never sent`;
+        $('privBox').textContent = JSON.stringify(data.privacy, null, 2);
       }
       return data;
     }
+
 
     async function refreshSecurity() {
       const data = await api(`/api/security-summary?sessionId=${sid()}`);
@@ -1620,8 +1650,19 @@
 
     if ($('btnRefreshCtx')) {
       $('btnRefreshCtx').onclick = () => refreshAgentContext().catch(e => {
-        if ($('agentCtxBox')) $('agentCtxBox').textContent = e.message;
+        if ($('ctxRemain')) $('ctxRemain').textContent = '错误';
+        toast('上下文', e.message);
       });
+    }
+    if ($('btnToggleRawCtx')) {
+      $('btnToggleRawCtx').onclick = () => {
+        const box = $('agentCtxBox');
+        if (!box) return;
+        const show = box.hasAttribute('hidden');
+        if (show) box.removeAttribute('hidden');
+        else box.setAttribute('hidden', '');
+        $('btnToggleRawCtx').textContent = show ? '收起原文' : '显示原文 prompt';
+      };
     }
 
 
