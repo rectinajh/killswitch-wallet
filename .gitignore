@@ -4,3 +4,23 @@ node_modules/
 !.env.example
 dist/
 coverage/
+
+# Foundry
+contracts/cache/
+contracts/out/
+contracts/broadcast/
+contracts/lib/
+
+# Logs
+*.log
+demos/*.log
+
+# OS
+.DS_Store
+*.swp
+*.swo
+
+# IDE
+.vscode/
+.idea/
+*.iml
