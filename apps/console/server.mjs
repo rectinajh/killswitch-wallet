@@ -1,35 +1,29 @@
-import http from 'node:http';
+/**
+ * Console entry. On Vercel, `vercel-build` runs `assemble-server.sh` which cats
+ * server.part1.mjs.txt + server.part2.mjs.txt → this file before deploy.
+ * Locally: `npm run assemble-console` (or `bash apps/console/assemble-server.sh`).
+ */
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { config as loadEnv } from 'dotenv';
-import { ethers } from 'ethers';
-import {
-  initializeAgent,
-  feeWei,
-  totalCostWei,
-  feePercentLabel,
-  resolveOwnerPrivateKey,
-  resolveAgentPrivateKey,
-  resolveChainLabel,
-  explorerUrlForTx,
-} from '../../agent/dist/index.js';
-import { buildAgentContextPreview } from '../../agent/dist/agent-context.js';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const root = path.resolve(__dirname, '../..');
-if (!process.env.VERCEL) {
-  try {
-    loadEnv({ path: path.join(root, '.env') });
-  } catch (_) {}
+const assembled = path.join(__dirname, 'server.assembled.mjs');
+const p1 = path.join(__dirname, 'server.part1.mjs.txt');
+const p2 = path.join(__dirname, 'server.part2.mjs.txt');
+
+if (!fs.existsSync(assembled) || process.env.FORCE_ASSEMBLE === '1') {
+  if (!fs.existsSync(p1) || !fs.existsSync(p2)) {
+    throw new Error('Missing server.part1/part2 — run bash apps/console/assemble-server.sh');
+  }
+  fs.writeFileSync(assembled, fs.readFileSync(p1, 'utf8') + fs.readFileSync(p2, 'utf8'));
 }
 
-const PORT = Number(process.env.CONSOLE_PORT || 8787);
-const abi = JSON.parse(fs.readFileSync(path.join(__dirname, 'abi.json'), 'utf8'));
+const mod = await import(pathToFileURL(assembled).href);
+export const handler = mod.handler;
+export default mod.default ?? mod.handler;
 
-/** See /tmp/server_decoded.mjs on the agent box for full file — restore in progress */
-export async function handler(req, res) {
-  res.writeHead(503, { 'Content-Type': 'application/json' });
-  res.end(JSON.stringify({ error: 'server.mjs restore in progress — use local apps/console/server.mjs' }));
+if (!process.env.VERCEL && mod.default) {
+  // listen is inside assembled file when run directly; this loader only re-exports for Vercel
 }
-export default handler;
