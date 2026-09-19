@@ -1,0 +1,253 @@
+
+    if (req.method === 'GET' && url.pathname === '/api/health') {
+      const rpcOk = await rpcReachable();
+      const llm = llmMeta();
+      const e = env();
+      return send(res, 200, {
+        ok: rpcOk && Boolean(e.contractAddress),
+        rpcOk,
+        rpcUrl: e.rpcUrl,
+        contractAddress: e.contractAddress || null,
+        contractConfigured: Boolean(e.contractAddress),
+        feeModel: `amount + ${feePercentLabel()} (budget checks totalCost)`,
+        feeFormula: '(amount * 2) / 100',
+        llm,
+        demoAmounts: await getDemoAmounts(new ethers.JsonRpcProvider(RPC_URL)).catch(() => null),
+        furiosaPath: {
+          officialLlm: 'LLM_PROVIDER=kiln + KILN_MODEL=gpt-oss-120b',
+          aaRoadmap: 'docs/AA_SESSION_KEY.md',
+          interface: 'contracts/src/interfaces/ISessionCapability.sol',
+          checkScript: 'scripts/check-furiosa-path.sh',
+        },
+        time: new Date().toISOString(),
+      });
+    }
+
+    if (req.method === 'GET' && url.pathname === '/api/sessions') {
+      const provider = new ethers.JsonRpcProvider(RPC_URL);
+      const c = getContract(provider);
+      const next = Number(await c.nextSessionId());
+      const ids = [];
+      for (let i = next - 1; i >= 0 && ids.length < 30; i--) ids.push(i);
+      const merged = [...new Set([...grantedSessions, ...ids])].sort((a, b) => b - a);
+      return send(res, 200, { nextSessionId: next, sessions: merged, grantedViaConsole: grantedSessions });
+    }
+
+    if (req.method === 'GET' && url.pathname === '/api/policy') {
+      const sessionId = Number(url.searchParams.get('sessionId') || 0);
+      const provider = new ethers.JsonRpcProvider(RPC_URL);
+      const c = getContract(provider);
+      const p = await c.getSessionPolicy(sessionId);
+      // owner, agent, budget, spent, deadline, merchants, frozen, active
+      const budget = p[2];
+      const spent = p[3];
+      const remaining = budget - spent;
+      const llm = llmMeta();
+      const now = Math.floor(Date.now() / 1000);
+      const deadline = Number(p[4]);
+      return send(res, 200, {
+        rpcUrl: RPC_URL,
+        contractAddress: CONTRACT_ADDRESS,
+        feeModel: `Budget check uses amount + ${feePercentLabel()} fee`,
+        feeFormula: '(amount * 2) / 100',
+        ...llm,
+        policy: {
+          owner: p[0],
+          agent: p[1],
+          budgetWei: budget.toString(),
+          spentWei: spent.toString(),
+          remainingWei: remaining.toString(),
+          budgetEth: ethers.formatEther(budget),
+          spentEth: ethers.formatEther(spent),
+          remainingEth: ethers.formatEther(remaining),
+          spentPct: budget > 0n ? Number((spent * 10000n) / budget) / 100 : 0,
+          remainingPct: budget > 0n ? Number((remaining * 10000n) / budget) / 100 : 0,
+          deadline,
+          deadlineIso: new Date(deadline * 1000).toISOString(),
+          secondsLeft: Math.max(0, deadline - now),
+          merchants: p[5],
+          frozen: p[6],
+          active: p[7],
+        },
+      });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/grant') {
+      const body = await readBody(req);
+      const provider = new ethers.JsonRpcProvider(RPC_URL);
+      const ownerWallet = new ethers.Wallet(OWNER_KEY, provider);
+      const agentWallet = new ethers.Wallet(AGENT_KEY, provider);
+      const agentAddress = body.agent || agentWallet.address;
+      const c = getContract(ownerWallet);
+      const amts = await getDemoAmounts(provider);
+      const budgetWei = ethers.parseEther(String(body.budgetEth || amts.defaultGrant));
+      {
+        const bal = await provider.getBalance(ownerWallet.address);
+        if (bal < budgetWei) {
+          return send(res, 400, {
+            error: `insufficient funds: owner has ${ethers.formatEther(bal)} ETH but grant needs ${ethers.formatEther(budgetWei)} ETH (plus gas). Top up Sepolia or use a smaller budgetEth.`,
+            balanceEth: ethers.formatEther(bal),
+            neededEth: ethers.formatEther(budgetWei),
+            suggestedBudgetEth: amts.autoGrant,
+          });
+        }
+      }
+      const duration = Number(body.durationSec || 3600);
+      const merchants = body.merchants || [];
+      const tx = await c.grantSession(budgetWei, duration, agentAddress, merchants, { value: budgetWei });
+      const receipt = await tx.wait();
+      const next = await c.nextSessionId();
+      const sessionId = Number(next) - 1;
+      if (!grantedSessions.includes(sessionId)) grantedSessions.unshift(sessionId);
+      const network = await provider.getNetwork();
+      const chainId = Number(network.chainId);
+      return send(res, 200, {
+        transactionHash: receipt.hash,
+        sessionId,
+        agent: agentAddress,
+        owner: ownerWallet.address,
+        chain: resolveChainLabel(chainId),
+        chainId,
+        explorerUrl: explorerUrlForTx(chainId, receipt.hash),
+        note: `Budget check will use amount + ${feePercentLabel()} fee`,
+      });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/freeze') {
+      const body = await readBody(req);
+      const provider = new ethers.JsonRpcProvider(RPC_URL);
+      const wallet = new ethers.Wallet(OWNER_KEY, provider);
+      const c = getContract(wallet);
+      const tx = await c.freeze(Number(body.sessionId || 0));
+      const receipt = await tx.wait();
+      return send(res, 200, { transactionHash: receipt.hash, frozen: true });
+    }
+
+
+    if (req.method === 'POST' && url.pathname === '/api/close') {
+      const body = await readBody(req);
+      const provider = new ethers.JsonRpcProvider(RPC_URL);
+      const wallet = new ethers.Wallet(OWNER_KEY, provider);
+      const c = getContract(wallet);
+      const sessionId = Number(body.sessionId || 0);
+      const before = await c.getSessionPolicy(sessionId);
+      // owner, agent, budget, spent, ... — refund on-chain = budget - spent + feesAccrued
+      const remainingWei = before[2] - before[3];
+      const tx = await c.closeSession(sessionId);
+      const receipt = await tx.wait();
+      return send(res, 200, {
+        transactionHash: receipt.hash,
+        closed: true,
+        refundedEth: ethers.formatEther(remainingWei > 0n ? remainingWei : 0n),
+        note: 'Session closed; remaining budget refunded to owner (AI Sovereignty)',
+      });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/propose') {
+      const body = await readBody(req);
+      const { paymentProposer } = await initializeAgent();
+      const opts = { explain: body.explain !== false };
+      if (body.forceAmountEth !== undefined) opts.forceAmountEth = String(body.forceAmountEth);
+      if (body.forceMerchant !== undefined) opts.forceMerchant = String(body.forceMerchant);
+      if (body.allowOffAllowlist) opts.allowOffAllowlist = true;
+      if (body.skipLlm === true) opts.skipLlm = true;
+      const result = await paymentProposer.proposePayment(
+        Number(body.sessionId || 0),
+        body.intent || (await getDemoAmounts(new ethers.JsonRpcProvider(RPC_URL))).autoProposeIntent,
+        opts
+      );
+      return send(res, 200, result);
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/demo/boundary') {
+      const body = await readBody(req);
+      const which = (body.case || 'budget').toLowerCase();
+      const { paymentProposer, signer } = await initializeAgent();
+      const provider = new ethers.JsonRpcProvider(RPC_URL);
+      const wallet = new ethers.Wallet(OWNER_KEY, provider);
+      const c = getContract(wallet);
+
+      let budgetEth;
+      let merchants;
+      let forceAmountEth;
+      let forceMerchant;
+      let allowOffAllowlist;
+      let intent;
+
+      const amts = await getDemoAmounts(provider);
+      if (which === 'merchant') {
+        budgetEth = amts.merchantBudget;
+        merchants = [MERCHANT_OK];
+        forceAmountEth = amts.merchantForce;
+        forceMerchant = MERCHANT_BAD;
+        allowOffAllowlist = true;
+        intent = 'Boundary demo: off-allowlist merchant';
+      } else {
+        // forceAmount + 2% fee must exceed budget (deny = success)
+        budgetEth = amts.boundaryBudget;
+        merchants = [MERCHANT_OK];
+        forceAmountEth = amts.boundaryForce;
+        forceMerchant = MERCHANT_OK;
+        allowOffAllowlist = false;
+        intent = 'Boundary demo: over-budget (amount + 2% fee)';
+      }
+
+      const budgetWei = ethers.parseEther(budgetEth);
+      const agentWallet = new ethers.Wallet(AGENT_KEY, provider);
+      const tx = await c.grantSession(budgetWei, 3600, agentWallet.address, merchants, { value: budgetWei });
+      await tx.wait();
+      const next = await c.nextSessionId();
+      const sessionId = Number(next) - 1;
+      if (!grantedSessions.includes(sessionId)) grantedSessions.unshift(sessionId);
+
+      const amountWei = ethers.parseEther(forceAmountEth);
+      const result = await paymentProposer.proposePayment(sessionId, intent, {
+        forceAmountEth,
+        forceMerchant,
+        allowOffAllowlist,
+        skipLlm: true,
+        explain: true,
+      });
+
+      return send(res, 200, {
+        case: which,
+        sessionId,
+        feePreview: {
+          amountEth: forceAmountEth,
+          feeEth: ethers.formatEther(feeWei(amountWei)),
+          totalCostEth: ethers.formatEther(totalCostWei(amountWei)),
+          feePercent: feePercentLabel(),
+          note: 'Deny is a success outcome — contract enforced the boundary',
+        },
+        result,
+      });
+    }
+
+    if (req.method === 'GET' && url.pathname === '/api/events') {
+      const sessionId = Number(url.searchParams.get('sessionId') || 0);
+      const { policyReader } = await initializeAgent();
+      const events = await policyReader.getPaymentHistory(sessionId, 0);
+      return send(res, 200, {
+        feeModel: `amount + ${feePercentLabel()}`,
+        events: events.map(enrichEvent),
+      });
+    }
+
+    send(res, 404, { error: 'not found' });
+  } catch (err) {
+    send(res, 500, { error: err.message || String(err) });
+  }
+}
+
+export default handler;
+
+// Local mode only — on Vercel, export the handler and do not listen.
+if (!process.env.VERCEL) {
+  const server = http.createServer(handler);
+  server.listen(PORT, '127.0.0.1', () => {
+    const e = env();
+    console.log(`KillSwitch console http://127.0.0.1:${PORT}`);
+    console.log(`Contract ${e.contractAddress || '(unset)'}`);
+    console.log(`Fee model: amount + ${feePercentLabel()} (budget checks totalCost)`);
+  });
+}
