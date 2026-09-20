@@ -1,0 +1,7 @@
+
+  <div id="demoSpotlightOverlay" aria-hidden="true"></div>
+  <div id="demoTourBanner" role="status" aria-live="polite">
+    <span class="dt-step" id="demoTourStep">Step —</span>
+    <span class="dt-title" id="demoTourTitle">Auto demo</span>
+    <span class="dt-look" id="demoTourLook">Look here…</span>
+  </div>
