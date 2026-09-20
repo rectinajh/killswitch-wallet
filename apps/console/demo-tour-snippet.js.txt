@@ -1,0 +1,192 @@
+<script>/* demo-tour */
+(function () {
+  var TOTAL = 7;
+  function el(id) { return document.getElementById(id); }
+  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  function setBanner(step, title, look) {
+    var ban = el('demoTourBanner');
+    if (!ban) return;
+    ban.classList.add('show');
+    var st = el('demoTourStep'), ti = el('demoTourTitle'), lk = el('demoTourLook');
+    if (st) st.textContent = 'Step ' + step + ' / ' + TOTAL;
+    if (ti) ti.textContent = title || '';
+    if (lk) lk.innerHTML = look ? ('Look here: <em>' + look + '</em>') : '';
+  }
+  function clearSpot() {
+    document.querySelectorAll('.demo-spotlight, .focus-pulse').forEach(function (n) {
+      n.classList.remove('demo-spotlight');
+      n.classList.remove('focus-pulse');
+    });
+    var ov = el('demoSpotlightOverlay');
+    if (ov) ov.classList.remove('show');
+  }
+  function endTour() {
+    clearSpot();
+    var ban = el('demoTourBanner');
+    if (ban) ban.classList.remove('show');
+    delete document.body.dataset.demoRunning;
+    delete document.body.dataset.demoStep;
+  }
+  function spotlight(ids, step, title, look) {
+    clearSpot();
+    document.body.dataset.demoRunning = '1';
+    document.body.dataset.demoStep = String(step || '');
+    var ov = el('demoSpotlightOverlay');
+    if (ov) ov.classList.add('show');
+    setBanner(step, title, look);
+    var first = null;
+    (Array.isArray(ids) ? ids : [ids]).forEach(function (id) {
+      var node = el(id) || document.querySelector('[data-demo-target="' + id + '"]');
+      if (!node) return;
+      node.classList.add('demo-spotlight');
+      node.classList.add('focus-pulse');
+      if (!first) first = node;
+    });
+    if (first) {
+      try { first.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
+    }
+    var coach = el('coachText');
+    if (coach && title) {
+      coach.innerHTML = '<strong>Auto demo ' + step + '/' + TOTAL + ':</strong> ' + title +
+        (look ? (' — look at <em>' + look + '</em>') : '');
+    }
+  }
+
+  async function guidedAutoDemo() {
+    if (window.__autoDemoRunning) {
+      if (typeof toast === 'function') toast('Demo running', 'Please wait…');
+      return;
+    }
+    var btn = el('btnStartDemo');
+    window.__autoDemoRunning = true;
+    if (btn) { btn.disabled = true; btn.textContent = 'Demo running…'; }
+    try {
+      if (typeof setGuideStep === 'function') setGuideStep(1);
+      if (typeof setWorkflowLit === 'function') setWorkflowLit('hitl');
+      if (typeof markTimeline === 'function') markTimeline(0);
+      spotlight(['panelPolicy', 'demoGuide'], 1, 'Granting session…', 'Policy panel (budget · allowlist · deadline)');
+      if (typeof toast === 'function') toast('Auto demo', '1/' + TOTAL + ' Granting session…', true);
+
+      var merchants = ((el('merchants') && el('merchants').value) || '')
+        .split(',').map(function (x) { return x.trim(); }).filter(Boolean);
+      var grant = await api('/api/grant', {
+        method: 'POST',
+        body: JSON.stringify({
+          budgetEth: (window.__demoAmounts && window.__demoAmounts.autoGrant) || (el('budget') && el('budget').value) || '0.0008',
+          durationSec: Number((el('duration') && el('duration').value) || 3600),
+          merchants: merchants.length ? merchants : [
+            '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+            '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+          ],
+        }),
+      });
+      if (typeof setSid === 'function') setSid(grant.sessionId);
+      if (el('result')) el('result').textContent = JSON.stringify(grant, null, 2);
+      if (typeof markDone === 'function') markDone(1);
+      if (typeof markTimeline === 'function') markTimeline(1);
+      if (typeof refreshSessions === 'function') await refreshSessions();
+      if (typeof refreshPolicy === 'function') await refreshPolicy();
+      if (typeof refreshAgentContext === 'function') await refreshAgentContext().catch(function () {});
+      spotlight(['bridgeLab', 'ctxCards', 'statusStrip'], 2, 'Session live — context updated', 'Bridge Lab context cards & health badge');
+      var tabCtx = document.querySelector('#bridgeTabs [data-tab="ctx"]');
+      if (tabCtx) try { tabCtx.click(); } catch (e) {}
+      await sleep(900);
+
+      if (typeof setGuideStep === 'function') setGuideStep(2);
+      if (typeof setWorkflowLit === 'function') setWorkflowLit('auto');
+      spotlight(['panelAgent', 'intent'], 3, 'Proposing coffee (in-limit)…', 'Agent panel — intent & Propose');
+      if (typeof toast === 'function') toast('Auto demo', '3/' + TOTAL + ' Proposing coffee…', true);
+      var intentDemo = (window.__demoAmounts && window.__demoAmounts.autoProposeIntent) || 'Buy coffee for 0.0003 ETH';
+      if (el('intent')) el('intent').value = intentDemo;
+      var prop = await api('/api/propose', {
+        method: 'POST',
+        body: JSON.stringify({
+          sessionId: grant.sessionId,
+          intent: intentDemo,
+          forceAmountEth: (window.__demoAmounts && window.__demoAmounts.autoProposeAmount) || '0.0003',
+          skipLlm: true,
+        }),
+      });
+      if (el('result')) el('result').textContent = JSON.stringify(prop, null, 2);
+      if (typeof renderDualEvidence === 'function') renderDualEvidence(prop);
+      if (typeof markDone === 'function') markDone(2);
+      if (typeof markTimeline === 'function') markTimeline(2);
+      if (typeof refreshPolicy === 'function') await refreshPolicy();
+      if (typeof loadEvents === 'function') await loadEvents(true);
+      if (typeof refreshSecurity === 'function') await refreshSecurity().catch(function () {});
+      if (typeof refreshProduction === 'function') await refreshProduction().catch(function () {});
+      if (typeof loadCommerceCatalog === 'function') await loadCommerceCatalog().catch(function () {});
+      spotlight(['dualEvidence', 'panelChain', 'receipts'], 4, 'Guard executed — look at receipt', 'Dual evidence + chain receipts (PaymentExecuted)');
+      await sleep(1100);
+
+      if (typeof setGuideStep === 'function') setGuideStep(3);
+      if (typeof setWorkflowLit === 'function') setWorkflowLit('guard');
+      spotlight(['panelAgent', 'dualEvidence'], 5, 'LLM→Deny boundary…', 'Agent panel — LLM propose then on-chain deny (may take 25–65s)');
+      if (typeof toast === 'function') toast('Auto demo', '5/' + TOTAL + ' LLM→Deny Over-budget…', true);
+      var boundary = await api('/api/demo/boundary', {
+        method: 'POST',
+        body: JSON.stringify({ case: 'budget' }),
+      });
+      if (boundary.sessionId != null && typeof setSid === 'function') setSid(boundary.sessionId);
+      if (el('result')) el('result').textContent = JSON.stringify(boundary, null, 2);
+      if (typeof renderDualEvidence === 'function') renderDualEvidence(boundary);
+      if (typeof setMeaning === 'function') {
+        setMeaning('Contract denied the over-budget pay — boundary is on-chain, not in the prompt. PaymentDenied is success.', true);
+      }
+      if (typeof markDone === 'function') markDone(3);
+      if (typeof markTimeline === 'function') markTimeline(3);
+      if (typeof refreshSessions === 'function') await refreshSessions();
+      if (typeof refreshPolicy === 'function') await refreshPolicy();
+      if (typeof loadEvents === 'function') await loadEvents(true);
+      if (typeof refreshSecurity === 'function') await refreshSecurity().catch(function () {});
+      spotlight(['panelChain', 'receipts', 'dualEvidence'], 6, 'Denied = success — look at receipt', 'Chain receipts & dual evidence (LLM proposal vs Guard deny)');
+      await sleep(1100);
+
+      if (typeof setGuideStep === 'function') setGuideStep(4);
+      if (typeof setWorkflowLit === 'function') setWorkflowLit('hitl');
+      spotlight(['panelPolicy', 'btnFreeze'], 7, 'Freezing session…', 'Freeze (Kill) — user HITL revoke (still clickable)');
+      if (typeof toast === 'function') toast('Auto demo', '7/' + TOTAL + ' Freeze / revoke…', true);
+      var sidNow = (typeof sid === 'function') ? sid() : Number((el('sessionIdManual') && el('sessionIdManual').value) || 0);
+      var frozen = await api('/api/freeze', {
+        method: 'POST',
+        body: JSON.stringify({ sessionId: sidNow }),
+      });
+      if (el('result')) el('result').textContent = JSON.stringify(frozen, null, 2);
+      if (typeof setMeaning === 'function') setMeaning('Session frozen: emergency stop is live — Agent cannot push payments.');
+      if (typeof markDone === 'function') markDone(4);
+      if (typeof markTimeline === 'function') markTimeline(4);
+      if (typeof setWorkflowLit === 'function') setWorkflowLit('all');
+      if (typeof refreshPolicy === 'function') await refreshPolicy();
+      if (typeof refreshSecurity === 'function') await refreshSecurity().catch(function () {});
+      if (typeof refreshAgentContext === 'function') await refreshAgentContext().catch(function () {});
+      endTour();
+      if (el('coachText')) {
+        el('coachText').innerHTML = '<strong>Demo complete:</strong> Grant → in-limit pay → LLM→Deny boundary → Freeze. You can still click Close/refund. Open Bridge Lab for each landing.';
+      }
+      if (typeof toast === 'function') toast('60s demo complete', 'Four-stage path done · Bridge Lab refreshed', true);
+    } catch (e) {
+      if (typeof toast === 'function') toast('Auto demo interrupted', e.message || String(e));
+      if (el('result')) el('result').textContent = e.message || String(e);
+      if (el('coachText')) {
+        el('coachText').innerHTML = '<strong>Demo interrupted:</strong> ' + (e.message || String(e)) + ' — continue with the buttons below.';
+      }
+      endTour();
+    } finally {
+      window.__autoDemoRunning = false;
+      if (btn) { btn.disabled = false; btn.textContent = 'Start 60s demo (auto)'; }
+    }
+  }
+
+  function bindTour() {
+    var btn = el('btnStartDemo');
+    if (!btn) return;
+    btn.onclick = function () { guidedAutoDemo(); };
+    btn.title = 'Auto: Grant → Propose → LLM→Deny Over-budget → Freeze';
+    if (btn.textContent && /演示|demo|60/i.test(btn.textContent)) {
+      btn.textContent = 'Start 60s demo (auto)';
+    }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { setTimeout(bindTour, 0); });
+  else setTimeout(bindTour, 0);
+})();
+</script>

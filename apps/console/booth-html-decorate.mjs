@@ -1,4 +1,10 @@
-/** Booth UI: label primary LLM→Deny vs Forced skip; wire forced buttons if missing in static HTML. */
+/** Booth UI: LLM→Deny labels + Forced skip + auto-demo guided spotlight tour. */
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 export function decorateBoothHtml(html) {
   let s = typeof html === 'string' ? html : html.toString('utf8');
   s = s.replace(
@@ -17,6 +23,43 @@ export function decorateBoothHtml(html) {
       '        Over-budget: tiny session where amount+2% exceeds budget. Off-allowlist: unpaid merchant.\n' +
       '      </div>'
   );
+
+  if (!s.includes('id="demoTourBanner"') && !s.includes('/* demo-tour */')) {
+    let tourCss = '';
+    let banner = '';
+    let tourJs = '';
+    try {
+      tourCss = fs.readFileSync(path.join(__dirname, 'demo-tour.css.txt'), 'utf8');
+      banner = fs.readFileSync(path.join(__dirname, 'demo-tour-banner.html.txt'), 'utf8');
+      tourJs = fs.readFileSync(path.join(__dirname, 'demo-tour-snippet.js.txt'), 'utf8');
+    } catch (e) {
+      // fall through without tour if assets missing
+    }
+    if (tourCss && s.includes('</style>')) s = s.replace('</style>', tourCss + '</style>', 1);
+    if (banner) s = s.replace('<div class="toast-host" id="toasts"></div>', '<div class="toast-host" id="toasts"></div>' + banner, 1);
+    const attrHooks = [
+      ['id="bridgeLab"', 'id="bridgeLab" data-demo-target="bridgeLab"'],
+      ['id="statusStrip"', 'id="statusStrip" data-demo-target="statusStrip"'],
+      ['id="panelPolicy"', 'id="panelPolicy" data-demo-target="panelPolicy"'],
+      ['id="panelAgent"', 'id="panelAgent" data-demo-target="panelAgent"'],
+      ['id="dualEvidence"', 'id="dualEvidence" data-demo-target="dualEvidence"'],
+      ['id="panelChain"', 'id="panelChain" data-demo-target="panelChain"'],
+      ['id="receipts"', 'id="receipts" data-demo-target="receipts"'],
+      ['id="ctxCards"', 'id="ctxCards" data-demo-target="ctxCards"'],
+      ['id="btnFreeze"', 'id="btnFreeze" data-demo-target="btnFreeze"'],
+      ['id="demoGuide"', 'id="demoGuide" data-demo-target="demoGuide"'],
+    ];
+    for (const [from, to] of attrHooks) {
+      const i = s.indexOf(from);
+      if (i >= 0 && !s.slice(i, i + from.length + 48).includes('data-demo-target')) s = s.replace(from, to);
+    }
+    s = s.replace(
+      'title="自动执行：Grant → Propose → Over-budget Deny → Freeze">开始 60 秒演示（自动）</button>',
+      'title="Auto: Grant → Propose → LLM→Deny Over-budget → Freeze">Start 60s demo (auto)</button>',
+    );
+    if (tourJs) s = s.replace('</body>', tourJs + '</body>', 1);
+  }
+
   if (!s.includes('/* booth-boundary-ui */')) {
     const boot = [
       '<script>/* booth-boundary-ui */',
