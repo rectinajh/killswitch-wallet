@@ -235,7 +235,7 @@ Can prove:
 
 ### Multi-Chain Support
 
-Current: EVM (Anvil/Sepolia)
+Current: EVM (Anvil / **Arbitrum Sepolia** / optional Ethereum Sepolia)
 
 **Potential**:
 - TRON (if challenge requires)

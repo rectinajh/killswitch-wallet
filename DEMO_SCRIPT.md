@@ -21,10 +21,10 @@ Agent 可以替你向白名单商家代付，但不能拿主私钥；超额或�
 
 | 秒 | 画面 | 操作 | 口播（中文可直接念） |
 |----|------|------|---------------------|
-| 0–8 | 顶栏 + 情景区 | 滚到「Agentic Commerce」 | 「KillSwitch：智能体商业里的花费开关。Agent 代付，合约当 Guard。」 |
+| 0–8 | 顶栏 + 情景区 | 滚到「Agentic Commerce」 | 「KillSwitch：Arbitrum 上的 Agent 花费开关。Agent 代付，合约当 Guard。」 |
 | 8–18 | Policy Grant | Budget `0.5`，商家保持默认白名单 → **Grant session** | 「先授权 Session Key：半个 ETH、一小时、只许付给白名单店——不是把私钥交给模型。」 |
 | 18–28 | 商家目录 | 点 **Coffee Lane**，展示报价 JSON | 「发现商家、确认报价。这是目录里的白名单咖啡店，不是任意地址。」 |
-| 28–45 | Checkout | 点 **Checkout 代付**；看双栏 + 绿色 Credential | 「Agent checkout。模型只提议，合约放行。这里是 CommercePaymentCredential——商家可凭交易哈希对账。」 |
+| 28–45 | Checkout | 点 **Checkout 代付**；看双栏 + 绿色 Credential | 「Agent checkout。模型只提议，合约放行。Credential 带 Arbiscan 链接——商家可凭交易哈希对账。」 |
 | 45–60 | Shadow Shop | 点 **付给 Shadow Shop**；红色 denied 凭证 | 「再试未授权商家。PaymentDenied——拒绝也是成功，说明边界在链上，不在 prompt。」 |
 | 60–75 | Bridge Lab（可选切 1 个页签） | 点 **AI Security** 或 **Verifiable AI** | 「Bridge：安全成绩单 / 模型提议 vs 合约裁决，评委能核验。」 |
 | 75–90 | Freeze 或 Close | **Freeze (Kill)** 或 **Close / 退款** | 「用户主权：Freeze 停权，或 Close 退回剩余预算。Agent 无法覆盖。」 |

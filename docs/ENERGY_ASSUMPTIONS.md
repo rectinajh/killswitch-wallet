@@ -1,6 +1,8 @@
 # Energy / tokens (no fabricated joules)
 
-Official LLM path: **Kiln `gpt-oss-120b`** (`LLM_PROVIDER=kiln`).
+**Arbitrum Buildathon:** LLM is optional; chain evidence is the qualification path.
+
+Legacy / optional LLM path: **Kiln `gpt-oss-120b`** (`LLM_PROVIDER=kiln`) or Kimi.
 
 See **[JUDGE.md](../JUDGE.md)** § “Official LLM path · tokens · energy”.
 

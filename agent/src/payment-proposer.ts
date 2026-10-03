@@ -112,18 +112,47 @@ function toUsageSplit(u?: KilnUsage): TokenUsageSplit | undefined {
   };
 }
 
+/** Well-known chain ids used by demos / Arbitrum Buildathon */
+export const CHAIN_IDS = {
+  anvil: 31337,
+  ethereumSepolia: 11155111,
+  arbitrumOne: 42161,
+  arbitrumSepolia: 421614,
+  /** Robinhood Chain testnet — confirm against current docs before relying on explorer */
+  robinhoodTestnet: 20240603,
+} as const;
+
 export function resolveChainLabel(chainId: number): string {
   const fromEnv = process.env.CHAIN_LABEL?.trim();
   if (fromEnv) return fromEnv;
-  if (chainId === 31337) return 'anvil';
-  if (chainId === 11155111) return 'sepolia';
+  if (chainId === CHAIN_IDS.anvil) return 'anvil';
+  if (chainId === CHAIN_IDS.ethereumSepolia) return 'ethereum-sepolia';
+  if (chainId === CHAIN_IDS.arbitrumSepolia) return 'arbitrum-sepolia';
+  if (chainId === CHAIN_IDS.arbitrumOne) return 'arbitrum-one';
+  if (chainId === CHAIN_IDS.robinhoodTestnet) return 'robinhood-testnet';
   return `chain-${chainId}`;
 }
 
 export function explorerUrlForTx(chainId: number, txHash: string): string | undefined {
-  if (chainId === 11155111) {
-    return `https://sepolia.etherscan.io/tx/${txHash}`;
+  const hash = txHash?.startsWith('0x') ? txHash : `0x${txHash}`;
+  if (chainId === CHAIN_IDS.ethereumSepolia) {
+    return `https://sepolia.etherscan.io/tx/${hash}`;
   }
+  if (chainId === CHAIN_IDS.arbitrumSepolia) {
+    return `https://sepolia.arbiscan.io/tx/${hash}`;
+  }
+  if (chainId === CHAIN_IDS.arbitrumOne) {
+    return `https://arbiscan.io/tx/${hash}`;
+  }
+  if (chainId === CHAIN_IDS.robinhoodTestnet) {
+    // Placeholder base — override with EXPLORER_TX_URL_PREFIX if the host changes
+    const prefix =
+      process.env.EXPLORER_TX_URL_PREFIX?.replace(/\/$/, '') ||
+      'https://explorer.testnet.chain.robinhood.com/tx';
+    return `${prefix}/${hash}`;
+  }
+  const prefix = process.env.EXPLORER_TX_URL_PREFIX?.replace(/\/$/, '');
+  if (prefix) return `${prefix}/${hash}`;
   return undefined;
 }
 

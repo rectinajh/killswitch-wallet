@@ -13,6 +13,7 @@ export {
   buildCommercePaymentCredential,
   resolveChainLabel,
   explorerUrlForTx,
+  CHAIN_IDS,
 } from './payment-proposer.js';
 export { feeWei, totalCostWei, feePercentLabel, FEE_PERCENT } from './fees.js';
 export { buildAgentSystemPrompt, buildAgentContextPreview } from './agent-context.js';

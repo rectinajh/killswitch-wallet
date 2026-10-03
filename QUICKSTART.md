@@ -307,12 +307,12 @@ npm run build
 - **Run Tests**: `cd contracts && forge test`
 - **Modify Policy**: Edit `SessionPolicy.sol` for custom rules
 - **Extend Agent**: Add tools in `agent/src/`
-- **Deploy to Testnet**: Use Sepolia RPC in `.env`
+- **Deploy to Arbitrum Sepolia**: See below and [docs/ARBITRUM_BUILDATHON.md](docs/ARBITRUM_BUILDATHON.md)
 
 ## Development Workflow
 
 ```bash
-# Terminal 1: Blockchain
+# Terminal 1: Blockchain (local)
 anvil
 
 # Terminal 2: Watch agent changes
@@ -327,35 +327,43 @@ forge test --watch
 ./demos/01-success-payment.sh
 ```
 
-## Deployment to Sepolia Testnet
+## Deployment to Arbitrum Sepolia (hackathon)
 
 ```bash
-# 1. Get Sepolia ETH from faucet
-#    https://sepoliafaucet.com/
+# 1. Fund OWNER + AGENT with Arbitrum Sepolia ETH
+#    https://arbitrum.faucet.dev/  ·  https://faucet.quicknode.com/arbitrum/sepolia
 
 # 2. Update .env
-SEPOLIA_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/YOUR_KEY
-PRIVATE_KEY=your_sepolia_private_key
+RPC_URL=https://sepolia-rollup.arbitrum.io/rpc
+ARB_SEPOLIA_RPC_URL=$RPC_URL
+CHAIN_LABEL=arbitrum-sepolia
+OWNER_PRIVATE_KEY=0x...   # funded throwaway
+AGENT_PRIVATE_KEY=0x...   # funded throwaway
 
-# 3. Deploy
-cd contracts
-forge create src/SessionPolicy.sol:SessionPolicy \
-  --rpc-url $SEPOLIA_RPC_URL \
-  --private-key $PRIVATE_KEY \
-  --verify \
-  --etherscan-api-key $ETHERSCAN_API_KEY
+# 3. Deploy + seed session
+./scripts/deploy-arbitrum-sepolia.sh
+# paste CONTRACT_ADDRESS + CONTRACT_DEPLOY_BLOCK into .env, then:
+SKIP_DEPLOY=1 ./demos/setup.sh
+# or one-shot: ./demos/setup.sh  (redeploys)
 
-# 4. Update CONTRACT_ADDRESS in .env
+# 4. Verify
+./scripts/check-arbitrum-path.sh
 
-# 5. Run demos with Sepolia RPC
-RPC_URL=$SEPOLIA_RPC_URL ./demos/01-success-payment.sh
+# 5. Demos / console (faucet-sized amounts auto-selected)
+./demos/01-success-payment.sh
+npm run console
 ```
+
+### Legacy: Ethereum Sepolia
+
+Still works if you set `RPC_URL` / `SEPOLIA_RPC_URL` to Ethereum Sepolia — not the Arbitrum Buildathon qualification path.
 
 ## Resources
 
+- **Arbitrum Buildathon**: [docs/ARBITRUM_BUILDATHON.md](docs/ARBITRUM_BUILDATHON.md)
 - **Foundry Docs**: https://book.getfoundry.sh/
 - **Ethers.js Docs**: https://docs.ethers.org/v6/
-- **Kiln API**: https://kilnapi.com/docs
+- **Arbitrum Docs**: https://docs.arbitrum.io/
 - **Architecture Guide**: [ARCHITECTURE.md](ARCHITECTURE.md)
 
 ---

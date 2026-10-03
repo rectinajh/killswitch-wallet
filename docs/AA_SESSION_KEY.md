@@ -1,8 +1,9 @@
 # From SessionPolicy → ERC-4337 Session Key
 
-KillSwitch proves the **capability rules** on a simple escrow-style `SessionPolicy` contract.
-This document is the **production evolution** aligned with AI × Web3 Handbook
-(Account Abstraction · Agent Wallet · Session Key).
+KillSwitch proves the **capability rules** on a simple escrow-style `SessionPolicy` contract
+(deployable on **Arbitrum** today — see [`ARBITRUM_BUILDATHON.md`](ARBITRUM_BUILDATHON.md)).
+This document is the **production evolution** toward Account Abstraction / Smart Sessions
+(e.g. ZeroDev on Arbitrum — see HackQuest resources).
 
 ## What stays identical
 

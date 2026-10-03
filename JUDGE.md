@@ -6,6 +6,7 @@
 > **Booth ops:** [`docs/BOOTH_RUNBOOK.md`](docs/BOOTH_RUNBOOK.md) — warm session, latency, faucet, failover.
 
 **Core idea:** **Agentic Commerce（智能体商业）** — agent discovers, quotes, and pays under a Session Key; contract Guards; user keeps Freeze/Close.  
+**Arbitrum Buildathon:** deploy on **Arbitrum Sepolia** and open Arbiscan from the credential — [`docs/ARBITRUM_BUILDATHON.md`](docs/ARBITRUM_BUILDATHON.md).  
 **Handbook (optional vocabulary):** [AI × Web3 — Wallet / Permission · Agent Wallet](https://aiweb3.school/zh/handbook/)
 
 ## Why Agentic Commerce

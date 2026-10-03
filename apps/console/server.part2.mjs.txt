@@ -13,10 +13,19 @@
         feeFormula: '(amount * 2) / 100',
         llm,
         demoAmounts: await getDemoAmounts(new ethers.JsonRpcProvider(RPC_URL)).catch(() => null),
-        furiosaPath: {
-          officialLlm: 'LLM_PROVIDER=kiln + KILN_MODEL=gpt-oss-120b',
+        arbitrumPath: {
+          target: 'Arbitrum Sepolia (chainId 421614) — Open House Buildathon',
+          checkScript: 'scripts/check-arbitrum-path.sh',
+          deployScript: 'scripts/deploy-arbitrum-sepolia.sh',
+          docs: 'docs/ARBITRUM_BUILDATHON.md',
           aaRoadmap: 'docs/AA_SESSION_KEY.md',
+          usdgRoadmap: 'docs/USDG_ROADMAP.md',
           interface: 'contracts/src/interfaces/ISessionCapability.sol',
+        },
+        // Legacy field for older booth UI; prefer arbitrumPath
+        furiosaPath: {
+          note: 'legacy GWDC — use arbitrumPath for Arbitrum Buildathon',
+          optionalLlm: 'LLM_PROVIDER=kiln|kimi (optional)',
           checkScript: 'scripts/check-furiosa-path.sh',
         },
         time: new Date().toISOString(),
@@ -85,7 +94,7 @@
         const bal = await provider.getBalance(ownerWallet.address);
         if (bal < budgetWei) {
           return send(res, 400, {
-            error: `insufficient funds: owner has ${ethers.formatEther(bal)} ETH but grant needs ${ethers.formatEther(budgetWei)} ETH (plus gas). Top up Sepolia or use a smaller budgetEth.`,
+            error: `insufficient funds: owner has ${ethers.formatEther(bal)} ETH but grant needs ${ethers.formatEther(budgetWei)} ETH (plus gas). Top up Arbitrum Sepolia (or current RPC chain) or use a smaller budgetEth.`,
             balanceEth: ethers.formatEther(bal),
             neededEth: ethers.formatEther(budgetWei),
             suggestedBudgetEth: amts.autoGrant,

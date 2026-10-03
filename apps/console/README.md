@@ -36,4 +36,6 @@ Budget check uses **amount + 2% fee** (`(amount * 2) / 100` in `SessionPolicy.so
 | POST | `/api/propose` | Optional `forceAmountEth`, `forceMerchant`, `allowOffAllowlist` |
 | POST | `/api/demo/boundary` | `{ case: "budget" \| "merchant", skipLlm?: boolean }` — default **LLM→Guard deny**; `skipLlm:true` = forced fast path |
 
-Uses `.env` (`RPC_URL`, `PRIVATE_KEY`, `CONTRACT_ADDRESS`). Optional Kiln `gpt-oss-120b` (`LLM_PROVIDER=kiln`); local demos often use `LLM_PROVIDER=kimi`.
+Uses `.env` (`RPC_URL`, `OWNER_PRIVATE_KEY`, `AGENT_PRIVATE_KEY`, `CONTRACT_ADDRESS`, optional `CONTRACT_DEPLOY_BLOCK` / `CHAIN_LABEL`).
+
+**Arbitrum Buildathon:** point `RPC_URL` at Arbitrum Sepolia and deploy via `scripts/deploy-arbitrum-sepolia.sh` — see [`docs/ARBITRUM_BUILDATHON.md`](../../docs/ARBITRUM_BUILDATHON.md). LLM (`kiln` / `kimi`) is optional.

@@ -112,7 +112,7 @@ async function getDemoAmounts(provider) {
       };
     }
   } catch (_) {}
-  // Sepolia / other public RPCs — fit ~0.002 ETH faucet leftovers after gas
+  // Arbitrum Sepolia / other public RPCs — fit faucet leftovers after gas
   return {
     local: false,
     defaultGrant: '0.0008',
@@ -145,9 +145,12 @@ function llmMeta() {
         ? process.env.KIMI_MODEL || 'kimi-k2.6'
         : process.env.KILN_MODEL || 'gpt-oss-120b',
     mockMode,
-    furiosaOfficial: 'kiln gpt-oss-120b',
-          kilnKeyConfigured: Boolean(process.env.KILN_API_KEY && process.env.KILN_API_KEY !== 'your_key_here'),
-          officialPathReady: llmProvider === 'kiln' && Boolean(process.env.KILN_API_KEY && process.env.KILN_API_KEY !== 'your_key_here'),
+    kilnKeyConfigured: Boolean(process.env.KILN_API_KEY && process.env.KILN_API_KEY !== 'your_key_here'),
+    // Legacy alias (GWDC / Furiosa) — Arbitrum track treats any live LLM as fine
+    furiosaOfficial: 'optional kiln gpt-oss-120b',
+    officialPathReady:
+      llmProvider === 'kiln' &&
+      Boolean(process.env.KILN_API_KEY && process.env.KILN_API_KEY !== 'your_key_here'),
   };
 }
 

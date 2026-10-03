@@ -5,17 +5,20 @@ require_contract
 echo "=================================================="
 echo "Demo 2: Budget Exceeded (Boundary Test)"
 echo "=================================================="
-echo "Budget 0.1 ETH; propose 0.099 ETH + 2% fee = 0.10098 ETH > budget"
+echo "chainId=$CHAIN_ID budget=$DEMO_BUDGET_TIGHT_ETH ETH; propose amount_wei=$DEMO_OVER_AMOUNT_WEI (+2% fee → deny)"
 
 FROM=$(latest_block)
 echo "Step 1: grant tight-budget session"
-TXG=$(grant_session 100000000000000000 3600 "$MERCHANT2" 0.1)
+TXG=$(grant_session "$DEMO_BUDGET_TIGHT_WEI" 3600 "$MERCHANT2" "$DEMO_BUDGET_TIGHT_ETH")
 SID=$(next_session_id)
 echo "✓ grant tx: $TXG | session=$SID"
 
 echo "Step 2: propose over-budget payment"
-TX=$(propose_pay "$SID" "$MERCHANT2" 99000000000000000 "Exceeds budget with fee")
+TX=$(propose_pay "$SID" "$MERCHANT2" "$DEMO_OVER_AMOUNT_WEI" "Exceeds budget with fee")
 echo "✓ tx: $TX"
+if [[ "$CHAIN_ID" == "421614" ]]; then
+  echo "  Arbiscan: https://sepolia.arbiscan.io/tx/$TX"
+fi
 
 echo ""
 show_payment_events "$FROM"

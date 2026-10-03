@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Validate Furiosa B official configuration without printing secrets.
+# LEGACY (GWDC / Furiosa Challenge B) — optional LLM kit check.
+# For Arbitrum Open House Buildathon use: ./scripts/check-arbitrum-path.sh
 set -euo pipefail
 cd "$(dirname "$0")/.."
 if [[ ! -f .env ]]; then
@@ -12,11 +13,12 @@ source .env
 set +a
 
 ok=1
+echo "NOTE: legacy Furiosa path — Arbitrum track → scripts/check-arbitrum-path.sh"
 echo "LLM_PROVIDER=${LLM_PROVIDER:-<unset>}"
 if [[ "${LLM_PROVIDER:-}" == "kiln" ]]; then
-  echo "✓ Official provider selected (kiln)"
+  echo "✓ Kiln provider selected (optional)"
 else
-  echo "· Local/demo provider: ${LLM_PROVIDER:-kimi} (switch to kiln for Furiosa official path)"
+  echo "· Provider: ${LLM_PROVIDER:-kimi} (optional for Arbitrum; kiln only if you have a kit key)"
 fi
 
 key="${KILN_API_KEY:-}"

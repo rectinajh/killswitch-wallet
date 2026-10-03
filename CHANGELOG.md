@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Arbitrum Open House Buildathon path: chain labels + Arbiscan explorers (`421614` / `42161`), Foundry RPC endpoints, RPC-agnostic `demos/setup.sh`, console Production/health (`arbitrumPath`)
+- Docs: `docs/ARBITRUM_BUILDATHON.md`, `docs/USDG_ROADMAP.md`, QUICKSTART/JUDGE/BOOTH reoriented to Arbitrum Sepolia
+- Scripts: `scripts/deploy-arbitrum-sepolia.sh`, `scripts/check-arbitrum-path.sh`; Furiosa check marked legacy
+
 ## [1.0.0] - 2026-09-19
 
 ### Added

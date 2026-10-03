@@ -967,7 +967,7 @@
       <div class="logo" aria-hidden="true"></div>
       <div>
         <h1>KillSwitch Console</h1>
-        <div class="tagline">Furiosa B · Agent Wallet：Session Key 受限能力 · Policy 机检 · Guard 拒绝也可审计</div>
+        <div class="tagline">Arbitrum · Agent Spend Controls：Session Key · Policy 机检 · Guard 拒绝也可审计</div>
       </div>
     </div>
     <div class="status-strip" id="statusStrip">
@@ -1170,8 +1170,8 @@
     </div>
 
     <div class="bridge-panel" id="tab-prod">
-      <h4>Production · Furiosa 官方路径 + AA Session Key</h4>
-      <p class="desc">演示用 SessionPolicy 证明同一套能力规则；上线路径 = Kiln gpt-oss-120b + 未来 ERC-4337 Session 模块。规则表不变。</p>
+      <h4>Production · Arbitrum 部署 + AA Session Key</h4>
+      <p class="desc">资格路径：SessionPolicy 部署在 Arbitrum Sepolia，凭证带 Arbiscan 链接。LLM 可选；上线演进见 AA / USDG 路线图。规则表不变。</p>
       <pre class="ctx-box" id="prodBox">加载 health…</pre>
       <table class="matrix" style="margin-top:10px">
         <thead><tr><th>规则</th><th>今天 SessionPolicy</th><th>明天 Smart Session</th></tr></thead>
@@ -1346,14 +1346,13 @@
         const h = await api('/api/health').then(h => { if (h?.demoAmounts) { window.__demoAmounts = h.demoAmounts; if ($('budget') && h.demoAmounts.local === false) $('budget').value = h.demoAmounts.autoGrant; } return h; });
         box.textContent = JSON.stringify({
           llm: h.llm,
-          officialPathReady: h.llm?.officialPathReady ?? false,
-          kilnKeyConfigured: h.llm?.kilnKeyConfigured ?? false,
-          furiosaPath: h.furiosaPath,
+          arbitrumPath: h.arbitrumPath,
           contract: h.contractAddress,
-          note: h.llm?.officialPathReady
-            ? 'Kiln official path is live.'
-            : 'Local demo may use Kimi. Switch LLM_PROVIDER=kiln + KILN_API_KEY for Furiosa official inference.',
+          rpcOk: h.rpcOk,
+          note: 'Arbitrum Buildathon: deploy on chainId 421614, prove Executed + Denied on Arbiscan. LLM is optional.',
           aa: 'See docs/AA_SESSION_KEY.md — ISessionCapability is the stable rule surface.',
+          usdg: 'See docs/USDG_ROADMAP.md — optional Paxos USDG extras.',
+          check: 'scripts/check-arbitrum-path.sh',
         }, null, 2);
       } catch (e) {
         box.textContent = e.message;

@@ -13,21 +13,22 @@ Session Key authorizes; the contract Guards; deny is a success; the user can rev
 2. Hit **Health** (or `GET /api/health`) — confirm RPC reachable and LLM provider is not stuck in mock.
 3. **Grant** a warm session (Policy → Grant) with coffee-lane merchant on the allowlist. Leave the console page open so the Node process and RPC stay warm.
 4. Optional warm LLM: one in-limit **Propose** (“Buy coffee…”) so the first judge does not eat cold-start latency.
-5. Confirm Sepolia (or Anvil) balances for **owner** and **agent** (see Faucet below). Top up if either is low.
+5. Confirm **Arbitrum Sepolia** (or Anvil) balances for **owner** and **agent** (see Faucet below). Top up if either is low.
+6. Run `./scripts/check-arbitrum-path.sh` when demoing the hackathon path — expect `ARB_PATH_OK`.
 
 ## Latency expectations (Kimi / Moonshot)
 
 | Step | Typical wait | What to say while waiting |
 |------|----------------|---------------------------|
 | LLM propose | **25–65s** (Kimi) | “Model is proposing under SessionPolicy — Guard has not decided yet.” |
-| On-chain tx | 2–15s (Sepolia) | “Submitting to the contract — look for Executed or Denied.” |
+| On-chain tx | 1–10s (Arbitrum Sepolia) | “Submitting on Arbitrum — look for Executed or Denied + Arbiscan link.” |
 | Forced skip boundary | <5s | Fast path only — label it as **no LLM**. |
 
 - Keep the console tab warm; avoid closing the laptop / sleeping the network.
 - If the UI looks wrong after a deploy: **hard-refresh**.
 - Primary boundary button is **LLM→Deny** (not Forced skip). Judges should see **dual evidence**: LLM proposal / usage **and** on-chain `PaymentDenied`.
 
-## Faucet / Sepolia balance
+## Faucet / Arbitrum Sepolia balance
 
 **Do not commit secrets.** Keys live in local `.env` only (see `.env.example`).
 
@@ -35,31 +36,24 @@ Session Key authorizes; the contract Guards; deny is a success; the user can rev
 
 ```bash
 # From repo root, with RPC_URL and keys loaded from .env
-cast balance $OWNER_ADDRESS --rpc-url "$RPC_URL"
-cast balance $AGENT_ADDRESS --rpc-url "$RPC_URL"
-```
-
-Derive addresses from keys if needed:
-
-```bash
-cast wallet address --private-key "$OWNER_PRIVATE_KEY"
-cast wallet address --private-key "$AGENT_PRIVATE_KEY"
+cast balance $(cast wallet address --private-key "$OWNER_PRIVATE_KEY") --rpc-url "$RPC_URL"
+cast balance $(cast wallet address --private-key "$AGENT_PRIVATE_KEY") --rpc-url "$RPC_URL"
 ```
 
 ### Known local (Anvil) addresses — demo only
 
-These match the well-known Anvil accounts in `.env.example` (never use on mainnet):
+These match the well-known Anvil accounts in `.env.example` (never use on public nets as sole keys):
 
 | Role | Address (Anvil default) |
 |------|-------------------------|
 | Owner (account #0) | `0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266` |
 | Agent (account #1) | `0x70997970C51812dc3A010C7d01b50e0d17dc79C8` |
 
-### Sepolia top-up
+### Arbitrum Sepolia top-up
 
-1. Send a little Sepolia ETH to **owner** (grant / freeze / close) and **agent** (propose).
-2. Public faucets vary; use whatever the booth network allows (Alchemy / Google / community faucet).
-3. Re-check with `cast balance` until both can cover grant value + a few proposes.
+1. Send Arb Sepolia ETH to **owner** (grant / freeze / close) and **agent** (propose).
+2. Faucets: https://arbitrum.faucet.dev/ · https://faucet.quicknode.com/arbitrum/sepolia · https://www.l2faucet.com/arbitrum  
+3. Re-check with `cast balance` until both can cover grant (~0.0008 ETH) + gas.
 
 ## Demo order (canonical)
 

@@ -78,6 +78,23 @@ KillSwitch is built as an **Agentic Commerce** scenario aligned with the AI × W
 
 **Production evolution:** [`docs/AA_SESSION_KEY.md`](docs/AA_SESSION_KEY.md) maps `ISessionCapability` → ERC-4337 Session Key.
 
+## Arbitrum Open House Buildathon
+
+**Qualification path:** deploy `SessionPolicy` on **Arbitrum Sepolia** (`chainId` `421614`) and show Arbiscan links for `PaymentExecuted` + `PaymentDenied`.
+
+| Step | Command / doc |
+|------|----------------|
+| Config | Copy `.env.example` → `.env` (see table in [`docs/ARBITRUM_BUILDATHON.md`](docs/ARBITRUM_BUILDATHON.md)) |
+| Deploy | `./scripts/deploy-arbitrum-sepolia.sh` or `RPC_URL=<arb-sepolia> ./demos/setup.sh` |
+| Check | `./scripts/check-arbitrum-path.sh` → `ARB_PATH_OK` |
+| Pitch / USDG | [`docs/ARBITRUM_BUILDATHON.md`](docs/ARBITRUM_BUILDATHON.md) · [`docs/USDG_ROADMAP.md`](docs/USDG_ROADMAP.md) |
+
+After deploy, paste **contract address + example tx URLs** here for judges:
+
+- Contract: _(set after deploy)_  
+- Executed tx: _(Arbiscan)_  
+- Denied tx: _(Arbiscan)_  
+
 ## Deploy (Vercel)
 
 Production console deploys from GitHub `main` via the linked Vercel project (`killswitch-wallet`) and/or `.github/workflows/deploy-vercel.yml`.
@@ -86,11 +103,13 @@ Production console deploys from GitHub `main` via the linked Vercel project (`ki
 
 | Variable | Purpose |
 |----------|---------|
-| `RPC_URL` | Public JSON-RPC (not `127.0.0.1` Anvil) |
-| `PRIVATE_KEY` | Demo signer (never commit; use a throwaway funded key) |
-| `CONTRACT_ADDRESS` | Deployed `SessionPolicy` on that network |
-| `LLM_PROVIDER` | `kiln` (`gpt-oss-120b`) or `kimi` (local/demo) |
-| `KILN_API_KEY` / `KIMI_API_KEY` | Matching provider key (missing → mock proposals) |
+| `RPC_URL` | **Arbitrum Sepolia** JSON-RPC (not `127.0.0.1` Anvil) |
+| `OWNER_PRIVATE_KEY` / `AGENT_PRIVATE_KEY` | Funded throwaways (`PRIVATE_KEY` = agent alias) |
+| `CONTRACT_ADDRESS` | Deployed `SessionPolicy` on Arbitrum |
+| `CONTRACT_DEPLOY_BLOCK` | Deploy block (public RPC log scans) |
+| `CHAIN_LABEL` | `arbitrum-sepolia` |
+| `LLM_PROVIDER` | Optional `kiln` / `kimi` (missing key → mock) |
+| `KILN_API_KEY` / `KIMI_API_KEY` | Matching provider key |
 
 **CI secrets** (for the GitHub Actions deploy workflow): `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`.
 
@@ -281,7 +300,7 @@ MIT
 
 Demo: https://killswitch-wallet.vercel.app · Local: `./demos/demo-up.sh`
 
-**Built with**: Foundry, TypeScript, EVM (Anvil / public testnets), optional Kiln or Kimi LLM
+**Built with**: Foundry, TypeScript, EVM (**Arbitrum Sepolia** / Anvil), optional Kiln or Kimi LLM
 
 ## Local verification (Mac, 2026-09-20)
 

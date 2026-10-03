@@ -10,8 +10,13 @@ via_ir = false
 [rpc_endpoints]
 anvil = "http://127.0.0.1:8545"
 sepolia = "${SEPOLIA_RPC_URL}"
+arbitrum_sepolia = "${ARB_SEPOLIA_RPC_URL}"
+arbitrum_one = "${ARB_ONE_RPC_URL}"
 
 [etherscan]
 sepolia = { key = "${ETHERSCAN_API_KEY}" }
+# Arbiscan API (get a key at https://arbiscan.io/myapikey)
+arbitrum_sepolia = { key = "${ARBISCAN_API_KEY}", chain = 421614, url = "https://api-sepolia.arbiscan.io/api" }
+arbitrum_one = { key = "${ARBISCAN_API_KEY}", chain = 42161, url = "https://api.arbiscan.io/api" }
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
