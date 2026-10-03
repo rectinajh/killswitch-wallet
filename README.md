@@ -25,10 +25,10 @@ You grant a time-bounded Session Key (budget · merchant allowlist · deadline).
 |--|--|
 | Contract | [`0x5A035E67d5b5A895e71e14B6C9201952C81350df`](https://sepolia.arbiscan.io/address/0x5A035E67d5b5A895e71e14B6C9201952C81350df) |
 | Deploy block | `315227756` |
-| `PaymentExecuted` | [`0xb77a…629a`](https://sepolia.arbiscan.io/tx/0xb77a6145d27ba39875f24ddc4a6e1192cae8583a4e824ed6b7ae404df9dc629a) |
-| `PaymentDenied` (budget) | [`0x99de…26ac`](https://sepolia.arbiscan.io/tx/0x99deb3f987d68d178310228a45510bddc43d64bd6296a3f46ea6cc61332126ac) |
-| `PaymentDenied` (merchant) | [`0x9d33…c88c`](https://sepolia.arbiscan.io/tx/0x9d33cfb55b08d9ce6fcf4dd4cf7f71105d13726a679b232a9c9ec4771188c88c) |
-| Session grant | [`0x8c5b…8a49`](https://sepolia.arbiscan.io/tx/0x8c5b646a43b8a83c2dfabe4b29d706aeda06b3f51ce45bf3cb4143687f658a49) |
+| Session 4 grant | [`0xde3e…4303`](https://sepolia.arbiscan.io/tx/0xde3ef396d1b7fc0cb04c170df4841d0f672c6dce04429e545bd8fbe9f2ee4303) |
+| `PaymentExecuted` (coffee) | [`0x1fbe…7d0c`](https://sepolia.arbiscan.io/tx/0x1fbe7e9d4f8060b7ab3fc91bd831cfdc9f383fd65bea1dc07426c9295aed7d0c) |
+| `PaymentDenied` (Shadow Shop) | [`0x6099…3ff6`](https://sepolia.arbiscan.io/tx/0x609919e0fb25c503af5b9ab7632669ae07be0ffca0a1d547fd34f3b3d1383ff6) |
+| Freeze | [`0x0bff…74bf`](https://sepolia.arbiscan.io/tx/0x0bff1b859133bceddc4c836bf2c81684c4eae13bff91b21edd6ad205e22d74bf) |
 
 Submission media: [`docs/submission/`](docs/submission/) · 90s pitch: [`docs/PITCH.md`](docs/PITCH.md) · [`docs/ARBITRUM_BUILDATHON.md`](docs/ARBITRUM_BUILDATHON.md) · Verify: `./scripts/verify-arbitrum-sepolia.sh` · Vercel: [`docs/VERCEL_ARB.md`](docs/VERCEL_ARB.md) · USDG: [`docs/USDG_ROADMAP.md`](docs/USDG_ROADMAP.md) · Robinhood P2: [`docs/ROBINHOOD.md`](docs/ROBINHOOD.md)
 
