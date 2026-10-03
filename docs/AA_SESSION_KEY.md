@@ -39,11 +39,9 @@ AA splits validation (session module) from execution (account), but the **judge 
 
 ## Next engineering milestones
 
-1. Implement `ISessionCapability` as a Kernel / Safe / Rhinestone session module
-2. Agent submits UserOps instead of EOA `proposeOrPay`
-3. Index `UserOperationEvent` + custom deny logs into the same console receipts UI
-4. Optional paymaster for gas abstraction (Machine Payment UX)
+1. Wrap `ISessionCapability` as a [ZeroDev](https://docs.zerodev.app/) / Kernel session validator on **Arbitrum Sepolia** (HackQuest resource: Get started with ZeroDev).
+2. Agent submits UserOps instead of EOA `proposeOrPay`; EntryPoint validation is the Guard.
+3. Index `UserOperationEvent` + deny logs into the same console receipts UI.
+4. Optional paymaster for gas abstraction.
 
-## Console
-
-Bridge Lab → **Production** tab shows Kiln official LLM path readiness and this AA roadmap checklist.
+Judge story today is unchanged: Session Key ≠ master key; deny is success.

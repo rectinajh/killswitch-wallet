@@ -35,6 +35,11 @@ CHAIN_ID_HEX=$(curl -sf -X POST "$RPC_URL" \
 CHAIN_ID=$((16#${CHAIN_ID_HEX#0x}))
 echo "✓ RPC ok — chainId=$CHAIN_ID"
 
+OWNER_KEY="${OWNER_PRIVATE_KEY:-${PRIVATE_KEY_OWNER:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}}"
+AGENT_KEY="${AGENT_PRIVATE_KEY:-${PRIVATE_KEY:-0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d}}"
+OWNER_ADDR=$(cast wallet address --private-key "$OWNER_KEY")
+AGENT_ADDR=$(cast wallet address --private-key "$AGENT_KEY")
+
 # Budget for initial session: large on Anvil, faucet-sized on public nets
 if [ "$CHAIN_ID" = "31337" ]; then
   BUDGET_WEI=1000000000000000000   # 1 ETH
@@ -44,15 +49,13 @@ if [ "$CHAIN_ID" = "31337" ]; then
 else
   BUDGET_WEI=800000000000000       # 0.0008 ETH
   BUDGET_LABEL="0.0008 ETH"
-  # Same demo merchant addresses (EOAs); fund separately if they must receive ETH
-  MERCHANT1="0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
-  MERCHANT2="0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
+  MERCHANT1="${MERCHANT_API:-$OWNER_ADDR}"
+  MERCHANT2="${MERCHANT_COFFEE:-$AGENT_ADDR}"
   echo "· Public testnet mode — using faucet-sized grant ($BUDGET_LABEL)"
-  echo "· Tip: fund OWNER + AGENT on this chain before demos (see docs/ARBITRUM_BUILDATHON.md)"
+  echo "· Merchants: API=$MERCHANT1 coffee=$MERCHANT2 (your EOAs, not Anvil)"
+  echo "· Tip: fund OWNER + AGENT (see docs/ARBITRUM_BUILDATHON.md)"
 fi
 echo ""
-
-OWNER_KEY="${OWNER_PRIVATE_KEY:-${PRIVATE_KEY_OWNER:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}}"
 DEPLOY_BLOCK=$(cast block-number --rpc-url "$RPC_URL")
 
 if [[ "${SKIP_DEPLOY:-0}" == "1" && -n "${CONTRACT_ADDRESS:-}" ]]; then

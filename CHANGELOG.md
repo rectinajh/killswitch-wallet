@@ -10,7 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Arbitrum Open House Buildathon path: chain labels + Arbiscan explorers (`421614` / `42161`), Foundry RPC endpoints, RPC-agnostic `demos/setup.sh`, console Production/health (`arbitrumPath`)
 - Docs: `docs/ARBITRUM_BUILDATHON.md`, `docs/USDG_ROADMAP.md`, QUICKSTART/JUDGE/BOOTH reoriented to Arbitrum Sepolia
-- Scripts: `scripts/deploy-arbitrum-sepolia.sh`, `scripts/check-arbitrum-path.sh`; Furiosa check marked legacy
+- Scripts: `scripts/deploy-arbitrum-sepolia.sh`, `scripts/check-arbitrum-path.sh`, `scripts/verify-arbitrum-sepolia.sh`; Furiosa check marked legacy
+- Judge packaging: `docs/PITCH.md`, `docs/VERCEL_ARB.md`, `docs/ROBINHOOD.md`; public-net merchants use owner/agent EOAs; 90s demo video
 
 ## [1.0.0] - 2026-09-19
 

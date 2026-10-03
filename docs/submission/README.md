@@ -21,7 +21,7 @@ Optional extras (not counting toward the 4 slots, useful in pitch deck):
 
 | File | Length | Notes |
 |------|--------|--------|
-| `killswitch-arbitrum-demo.mp4` | ~45s | Silent slideshow: hero → console → flow → policy → deny thesis → agent UI → Arbitrum deploy |
+| `killswitch-arbitrum-demo.mp4` | ~90s | Captioned slideshow (no mic). Prefer a live Console recording if you can. Pitch: [`docs/PITCH.md`](../PITCH.md) |
 
 HackQuest often wants **≤ 3 minutes**. This file is under that limit. For a stronger entry, re-record with voiceover using the script below (or screen-record `http://127.0.0.1:8787` while clicking Grant → checkout → Shadow deny → Freeze).
 

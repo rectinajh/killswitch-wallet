@@ -61,6 +61,8 @@ export interface CommercePaymentCredential {
   sessionId: number;
   merchant?: string;
   amountEth?: string;
+  /** Native ETH today; USDG/USDC when PAYMENT_TOKEN is set */
+  token?: string;
   status: 'executed' | 'denied' | 'unknown';
 }
 
@@ -175,6 +177,7 @@ export function buildCommercePaymentCredential(
     sessionId,
     merchant: last?.merchant,
     amountEth: last?.amount,
+    token: (process.env.PAYMENT_TOKEN || 'ETH').toUpperCase(),
     status: denied ? 'denied' : executed ? 'executed' : 'unknown',
   };
 }

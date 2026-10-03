@@ -1343,16 +1343,28 @@
       const box = $('prodBox');
       if (!box) return;
       try {
-        const h = await api('/api/health').then(h => { if (h?.demoAmounts) { window.__demoAmounts = h.demoAmounts; if ($('budget') && h.demoAmounts.local === false) $('budget').value = h.demoAmounts.autoGrant; } return h; });
+        const h = await api('/api/health').then(h => {
+          if (h?.demoAmounts) {
+            window.__demoAmounts = h.demoAmounts;
+            if ($('budget') && h.demoAmounts.local === false) $('budget').value = h.demoAmounts.autoGrant;
+          }
+          if (h?.demoMerchants && $('merchants')) {
+            const m = h.demoMerchants;
+            $('merchants').value = [m.coffee, m.api].filter(Boolean).join(',');
+          }
+          return h;
+        });
         box.textContent = JSON.stringify({
           llm: h.llm,
           arbitrumPath: h.arbitrumPath,
           contract: h.contractAddress,
           rpcOk: h.rpcOk,
-          note: 'Arbitrum Buildathon: deploy on chainId 421614, prove Executed + Denied on Arbiscan. LLM is optional.',
-          aa: 'See docs/AA_SESSION_KEY.md — ISessionCapability is the stable rule surface.',
-          usdg: 'See docs/USDG_ROADMAP.md — optional Paxos USDG extras.',
-          check: 'scripts/check-arbitrum-path.sh',
+          note: 'Arbitrum Buildathon: chainId 421614, Executed + Denied on Arbiscan. LLM optional.',
+          aa: 'docs/AA_SESSION_KEY.md — ZeroDev next; ISessionCapability is the rule surface.',
+          usdg: 'docs/USDG_ROADMAP.md — Circle USDC 0x75faf114…AA4d stand-in.',
+          vercel: h.vercelHint,
+          demoMerchants: h.demoMerchants,
+          check: 'scripts/check-arbitrum-path.sh · scripts/verify-arbitrum-sepolia.sh',
         }, null, 2);
       } catch (e) {
         box.textContent = e.message;
@@ -1806,10 +1818,14 @@
           body: JSON.stringify({
             budgetEth: (window.__demoAmounts && window.__demoAmounts.autoGrant) || $('budget').value || '0.0008',
             durationSec: Number($('duration').value || 3600),
-            merchants: merchants.length ? merchants : [
-              '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
-              '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
-            ],
+            merchants: merchants.length ? merchants : (
+              window.__demoMerchants
+                ? [window.__demoMerchants.coffee, window.__demoMerchants.api]
+                : [
+                    '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+                    '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+                  ]
+            ),
           }),
         });
         setSid(grant.sessionId);
@@ -2067,6 +2083,8 @@
     async function refreshHealth() {
       try {
         const h = await api('/api/health');
+        if (h?.demoMerchants) window.__demoMerchants = h.demoMerchants;
+        if (h?.demoAmounts) window.__demoAmounts = h.demoAmounts;
         const led = $('led');
         led.className = 'led ' + (h.ok ? 'ok' : 'bad');
         const parts = [

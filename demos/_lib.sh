@@ -7,14 +7,11 @@ set -a
 source .env
 set +a
 
-MERCHANT1="0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
-MERCHANT2="0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
-UNAUTHORIZED="0xBad0000000000000000000000000000000000Bad"
-
 # Owner = Anvil #0 (grant/freeze/close); Agent = Anvil #1 (propose)
 OWNER_KEY="${OWNER_PRIVATE_KEY:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}"
 AGENT_KEY="${AGENT_PRIVATE_KEY:-${PRIVATE_KEY:-0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d}}"
 AGENT_ADDR="${AGENT_ADDRESS:-$(cast wallet address --private-key "$AGENT_KEY")}"
+OWNER_ADDR="$(cast wallet address --private-key "$OWNER_KEY")"
 
 # Amounts: large on Anvil, faucet-sized on Arbitrum Sepolia / other public RPCs
 # cast chain-id prints decimal; eth_chainId JSON is hex — accept either
@@ -23,6 +20,15 @@ if [[ "$CHAIN_ID_RAW" == 0x* || "$CHAIN_ID_RAW" == 0X* ]]; then
   CHAIN_ID=$((16#${CHAIN_ID_RAW#0[xX]}))
 else
   CHAIN_ID=$((10#$CHAIN_ID_RAW))
+fi
+
+UNAUTHORIZED="${MERCHANT_SHADOW:-0xBad0000000000000000000000000000000000Bad}"
+if [[ "$CHAIN_ID" == "31337" ]]; then
+  MERCHANT1="${MERCHANT_API:-0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266}"
+  MERCHANT2="${MERCHANT_COFFEE:-0x70997970C51812dc3A010C7d01b50e0d17dc79C8}"
+else
+  MERCHANT1="${MERCHANT_API:-$OWNER_ADDR}"
+  MERCHANT2="${MERCHANT_COFFEE:-$AGENT_ADDR}"
 fi
 if [[ "$CHAIN_ID" == "31337" ]]; then
   DEMO_SUCCESS_AMOUNT_WEI=50000000000000000          # 0.05 ETH

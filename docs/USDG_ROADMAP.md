@@ -19,7 +19,12 @@ Session budget, spent, fees, and merchant payout denominated in **USDG** (or USD
 4. Console catalog quotes in USDG; credential adds `token` + `decimals`.  
 5. Env: `USDG_TOKEN_ADDRESS`, `PAYMENT_TOKEN=usdg`.  
 
-## Env placeholders (already in `.env.example`)
+## Circle USDC on Arbitrum Sepolia (stand-in for USDG)
+
+`0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d`  
+Faucet: https://faucet.circle.com/
+
+Set `PAYMENT_TOKEN=USDC` in `.env` so credentials label the asset (settlement is still native ETH until ERC-20 `SessionPolicy` lands).
 
 ```bash
 # USDG_TOKEN_ADDRESS=

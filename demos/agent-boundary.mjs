@@ -29,8 +29,16 @@ const { initializeAgent, feeWei, totalCostWei } = await import(
   pathToFileURL(path.join(root, 'agent/dist/index.js')).href
 );
 
-const MERCHANT_OK = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
-const MERCHANT_BAD = '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC';
+const MERCHANT_BAD =
+  process.env.MERCHANT_SHADOW?.trim() || '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC';
+
+function merchantOk(signer) {
+  if (process.env.MERCHANT_COFFEE?.trim()) return process.env.MERCHANT_COFFEE.trim();
+  if ((process.env.RPC_URL || '').includes('127.0.0.1')) {
+    return '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
+  }
+  return signer.address;
+}
 
 function assert(cond, msg) {
   if (!cond) throw new Error(msg);
@@ -49,7 +57,7 @@ async function grantTightSession(ownerSigner, agentAddress, contractAddress, bud
   return Number(next) - 1;
 }
 
-async function caseSuccess({ paymentProposer, ownerSigner, signer, contractAddress, llm }) {
+async function caseSuccess({ paymentProposer, ownerSigner, signer, contractAddress, llm, merchantOk: MERCHANT_OK }) {
   console.log('\n=== CASE: success path (LLM when key present) ===');
   const sessionId = await grantTightSession(
     ownerSigner,
@@ -85,7 +93,7 @@ async function caseSuccess({ paymentProposer, ownerSigner, signer, contractAddre
   return { sessionId, result };
 }
 
-async function caseBudget({ paymentProposer, ownerSigner, signer, contractAddress }) {
+async function caseBudget({ paymentProposer, ownerSigner, signer, contractAddress, merchantOk: MERCHANT_OK }) {
   console.log('\n=== CASE: over-budget (amount + 2% fee) ===');
   const sessionId = await grantTightSession(
     ownerSigner,
@@ -131,7 +139,7 @@ async function caseBudget({ paymentProposer, ownerSigner, signer, contractAddres
   return { sessionId, result };
 }
 
-async function caseMerchant({ paymentProposer, ownerSigner, signer, contractAddress }) {
+async function caseMerchant({ paymentProposer, ownerSigner, signer, contractAddress, merchantOk: MERCHANT_OK }) {
   console.log('\n=== CASE: off-allowlist merchant ===');
   const sessionId = await grantTightSession(
     ownerSigner,
@@ -174,7 +182,14 @@ async function main() {
   const which = (process.argv[2] || 'all').toLowerCase();
   const { paymentProposer, signer, ownerSigner, contractAddress, llm } =
     await initializeAgent();
-  const ctx = { paymentProposer, signer, ownerSigner, contractAddress, llm };
+  const ctx = {
+    paymentProposer,
+    signer,
+    ownerSigner,
+    contractAddress,
+    llm,
+    merchantOk: merchantOk(signer),
+  };
 
   if (which === 'success' || which === 'all') await caseSuccess(ctx);
   if (which === 'budget' || which === 'all') await caseBudget(ctx);

@@ -30,7 +30,7 @@ You grant a time-bounded Session Key (budget · merchant allowlist · deadline).
 | `PaymentDenied` (merchant) | [`0x9d33…c88c`](https://sepolia.arbiscan.io/tx/0x9d33cfb55b08d9ce6fcf4dd4cf7f71105d13726a679b232a9c9ec4771188c88c) |
 | Session grant | [`0x8c5b…8a49`](https://sepolia.arbiscan.io/tx/0x8c5b646a43b8a83c2dfabe4b29d706aeda06b3f51ce45bf3cb4143687f658a49) |
 
-Submission media: [`docs/submission/`](docs/submission/) · Pitch notes: [`docs/ARBITRUM_BUILDATHON.md`](docs/ARBITRUM_BUILDATHON.md) · Optional USDG path: [`docs/USDG_ROADMAP.md`](docs/USDG_ROADMAP.md)
+Submission media: [`docs/submission/`](docs/submission/) · 90s pitch: [`docs/PITCH.md`](docs/PITCH.md) · [`docs/ARBITRUM_BUILDATHON.md`](docs/ARBITRUM_BUILDATHON.md) · Verify: `./scripts/verify-arbitrum-sepolia.sh` · Vercel: [`docs/VERCEL_ARB.md`](docs/VERCEL_ARB.md) · USDG: [`docs/USDG_ROADMAP.md`](docs/USDG_ROADMAP.md) · Robinhood P2: [`docs/ROBINHOOD.md`](docs/ROBINHOOD.md)
 
 ## Demo contrast (what judges should see)
 
