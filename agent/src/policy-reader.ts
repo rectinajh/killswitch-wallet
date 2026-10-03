@@ -1,8 +1,10 @@
 import { ethers, EventLog } from 'ethers';
 import { feeWei, totalCostWei, feePercentLabel } from './fees.js';
+import { formatUnitsAmount, isNativeToken, readTokenMeta, type SettlementAsset } from './token.js';
 
 const SESSION_POLICY_ABI = [
   'function getSessionPolicy(uint256 sessionId) view returns (address owner, address agent, uint256 budget, uint256 spent, uint256 deadline, address[] memory merchants, bool frozen, bool active)',
+  'function getSessionToken(uint256 sessionId) view returns (address)',
   'function getRemainingBudget(uint256 sessionId) view returns (uint256)',
   'function checkMerchant(uint256 sessionId, address merchant) view returns (bool)',
   'function nextSessionId() view returns (uint256)',
@@ -20,6 +22,9 @@ export interface SessionPolicy {
   merchants: string[];
   frozen: boolean;
   active: boolean;
+  token: string;
+  decimals: number;
+  symbol: string;
 }
 
 export interface PaymentEvent {
@@ -52,6 +57,13 @@ export class PolicyReader {
 
   async getSessionPolicy(sessionId: number): Promise<SessionPolicy> {
     const policy = await this.contract.getSessionPolicy(sessionId);
+    let token = ethers.ZeroAddress;
+    try {
+      token = await this.contract.getSessionToken(sessionId);
+    } catch {
+      token = ethers.ZeroAddress;
+    }
+    const meta: SettlementAsset = await readTokenMeta(this.provider, token);
 
     return {
       owner: policy.owner,
@@ -62,6 +74,9 @@ export class PolicyReader {
       merchants: policy.merchants,
       frozen: policy.frozen,
       active: policy.active,
+      token: meta.token,
+      decimals: meta.decimals,
+      symbol: meta.symbol,
     };
   }
 
@@ -216,26 +231,29 @@ export class PolicyReader {
   }
 
   formatPolicy(policy: SessionPolicy): string {
-    const budgetEth = ethers.formatEther(policy.budget);
-    const spentEth = ethers.formatEther(policy.spent);
-    const remainingEth = ethers.formatEther(policy.budget - policy.spent);
+    const d = policy.decimals ?? 18;
+    const sym = policy.symbol || (isNativeToken(policy.token) ? 'ETH' : 'TOKEN');
+    const budget = formatUnitsAmount(policy.budget, d);
+    const spent = formatUnitsAmount(policy.spent, d);
+    const remaining = formatUnitsAmount(policy.budget - policy.spent, d);
     const deadline = new Date(Number(policy.deadline) * 1000);
 
     return `
 Session Policy:
   Owner: ${policy.owner}
   Agent: ${policy.agent}
-  Budget: ${budgetEth} ETH (max totalCost = amount + ${feePercentLabel()})
-  Spent: ${spentEth} ETH
-  Remaining: ${remainingEth} ETH
+  Token: ${sym} ${isNativeToken(policy.token) ? '(native)' : policy.token}
+  Budget: ${budget} ${sym} (max totalCost = amount + ${feePercentLabel()})
+  Spent: ${spent} ${sym}
+  Remaining: ${remaining} ${sym}
   Deadline: ${deadline.toISOString()}
   Merchants: ${policy.merchants.join(', ')}
   Status: ${policy.active ? (policy.frozen ? 'FROZEN' : 'ACTIVE') : 'CLOSED'}
     `.trim();
   }
 
-  formatPaymentEvent(event: PaymentEvent): string {
-    const amountEth = ethers.formatEther(event.amount);
+  formatPaymentEvent(event: PaymentEvent, decimals = 18, symbol = 'ETH'): string {
+    const amount = formatUnitsAmount(event.amount, decimals);
     const status =
       event.type === 'executed'
         ? '✓ EXECUTED'
@@ -246,14 +264,14 @@ Session Policy:
     let details = `
 ${status}
   Merchant: ${event.merchant}
-  Amount: ${amountEth} ETH
+  Amount: ${amount} ${symbol}
   Block: ${event.blockNumber}
   Tx: ${event.transactionHash}
     `.trim();
 
     if (event.fee !== undefined) {
-      details += `\n  Fee (${feePercentLabel()}): ${ethers.formatEther(event.fee)} ETH (${event.fee} wei)`;
-      details += `\n  Total cost: ${ethers.formatEther(totalCostWei(event.amount))} ETH`;
+      details += `\n  Fee (${feePercentLabel()}): ${formatUnitsAmount(event.fee, decimals)} ${symbol} (${event.fee} wei)`;
+      details += `\n  Total cost: ${formatUnitsAmount(totalCostWei(event.amount), decimals)} ${symbol}`;
     }
 
     if (event.type === 'executed' && event.receiptId) {

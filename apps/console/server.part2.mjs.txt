@@ -16,8 +16,11 @@
         demoMerchants: resolveDemoMerchants(),
         settlement: {
           asset: process.env.PAYMENT_TOKEN || 'ETH',
-          usdcSepolia: '0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d',
-          note: 'Live demo settles native ETH; USDG/USDC is docs/USDG_ROADMAP.md',
+          token: configuredErc20Address(),
+          usdcSepolia: CIRCLE_USDC_ARB_SEPOLIA,
+          note: configuredErc20Address()
+            ? 'New grants escrow ERC-20 via grantSessionToken; proposeOrPay transfers the token to the merchant'
+            : 'Native ETH escrow. Set PAYMENT_TOKEN=USDC (or USDG_TOKEN_ADDRESS) for stablecoin settlement.',
         },
         vercelHint:
           'Set RPC_URL, OWNER_PRIVATE_KEY, AGENT_PRIVATE_KEY, CONTRACT_ADDRESS, CONTRACT_DEPLOY_BLOCK, CHAIN_LABEL=arbitrum-sepolia on Vercel',
@@ -59,6 +62,12 @@
       const budget = p[2];
       const spent = p[3];
       const remaining = budget - spent;
+      let token = ethers.ZeroAddress;
+      try {
+        token = await c.getSessionToken(sessionId);
+      } catch (_) {}
+      const meta = await readTokenMeta(provider, token);
+      const fmt = (v) => formatUnitsAmount(v, meta.decimals);
       const llm = llmMeta();
       const now = Math.floor(Date.now() / 1000);
       const deadline = Number(p[4]);
@@ -71,12 +80,15 @@
         policy: {
           owner: p[0],
           agent: p[1],
+          token: meta.token,
+          symbol: meta.symbol,
+          decimals: meta.decimals,
           budgetWei: budget.toString(),
           spentWei: spent.toString(),
           remainingWei: remaining.toString(),
-          budgetEth: ethers.formatEther(budget),
-          spentEth: ethers.formatEther(spent),
-          remainingEth: ethers.formatEther(remaining),
+          budgetEth: fmt(budget),
+          spentEth: fmt(spent),
+          remainingEth: fmt(remaining),
           spentPct: budget > 0n ? Number((spent * 10000n) / budget) / 100 : 0,
           remainingPct: budget > 0n ? Number((remaining * 10000n) / budget) / 100 : 0,
           deadline,
@@ -97,22 +109,49 @@
       const agentAddress = body.agent || agentWallet.address;
       const c = getContract(ownerWallet);
       const amts = await getDemoAmounts(provider);
-      const budgetWei = ethers.parseEther(String(body.budgetEth || amts.defaultGrant));
-      {
-        const bal = await provider.getBalance(ownerWallet.address);
-        if (bal < budgetWei) {
-          return send(res, 400, {
-            error: `insufficient funds: owner has ${ethers.formatEther(bal)} ETH but grant needs ${ethers.formatEther(budgetWei)} ETH (plus gas). Top up Arbitrum Sepolia (or current RPC chain) or use a smaller budgetEth.`,
-            balanceEth: ethers.formatEther(bal),
-            neededEth: ethers.formatEther(budgetWei),
-            suggestedBudgetEth: amts.autoGrant,
-          });
-        }
-      }
+      const erc20Addr = configuredErc20Address();
       const duration = Number(body.durationSec || 3600);
       const merchants = body.merchants || [];
-      const tx = await c.grantSession(budgetWei, duration, agentAddress, merchants, { value: budgetWei });
-      const receipt = await tx.wait();
+      let receipt;
+      let settlement = { asset: 'ETH', token: null, decimals: 18 };
+      if (erc20Addr) {
+        const meta = await readTokenMeta(provider, erc20Addr);
+        const budgetWei = parseUnitsAmount(String(body.budgetEth || amts.defaultGrant), meta.decimals);
+        const erc20 = new ethers.Contract(erc20Addr, ERC20_APPROVE_ABI, ownerWallet);
+        const bal = await erc20.balanceOf(ownerWallet.address);
+        if (bal < budgetWei) {
+          return send(res, 400, {
+            error: `insufficient ${meta.symbol}: owner has ${formatUnitsAmount(bal, meta.decimals)} but grant needs ${formatUnitsAmount(budgetWei, meta.decimals)}. Faucet: https://faucet.circle.com/ (Arbitrum Sepolia USDC) or mint MockUSDG.`,
+            balance: formatUnitsAmount(bal, meta.decimals),
+            needed: formatUnitsAmount(budgetWei, meta.decimals),
+            token: erc20Addr,
+            faucet: 'https://faucet.circle.com/',
+          });
+        }
+        const allowance = await erc20.allowance(ownerWallet.address, await c.getAddress());
+        if (allowance < budgetWei) {
+          const atx = await erc20.approve(await c.getAddress(), ethers.MaxUint256);
+          await atx.wait();
+        }
+        const tx = await c.grantSessionToken(erc20Addr, budgetWei, duration, agentAddress, merchants);
+        receipt = await tx.wait();
+        settlement = { asset: meta.symbol, token: erc20Addr, decimals: meta.decimals };
+      } else {
+        const budgetWei = ethers.parseEther(String(body.budgetEth || amts.defaultGrant));
+        {
+          const bal = await provider.getBalance(ownerWallet.address);
+          if (bal < budgetWei) {
+            return send(res, 400, {
+              error: `insufficient funds: owner has ${ethers.formatEther(bal)} ETH but grant needs ${ethers.formatEther(budgetWei)} ETH (plus gas). Top up Arbitrum Sepolia (or current RPC chain) or use a smaller budgetEth.`,
+              balanceEth: ethers.formatEther(bal),
+              neededEth: ethers.formatEther(budgetWei),
+              suggestedBudgetEth: amts.autoGrant,
+            });
+          }
+        }
+        const tx = await c.grantSession(budgetWei, duration, agentAddress, merchants, { value: budgetWei });
+        receipt = await tx.wait();
+      }
       const next = await c.nextSessionId();
       const sessionId = Number(next) - 1;
       if (!grantedSessions.includes(sessionId)) grantedSessions.unshift(sessionId);
@@ -126,6 +165,7 @@
         chain: resolveChainLabel(chainId),
         chainId,
         explorerUrl: explorerUrlForTx(chainId, receipt.hash),
+        settlement,
         note: `Budget check will use amount + ${feePercentLabel()} fee`,
       });
     }
@@ -182,10 +222,12 @@
       // Default: real LLM propose, then Guard deny (dual evidence).
       // Pass skipLlm:true for a fast forced/adversarial path (no LLM).
       const skipLlm = body.skipLlm === true;
-      const { paymentProposer, signer } = await initializeAgent();
+      const { paymentProposer } = await initializeAgent();
       const provider = new ethers.JsonRpcProvider(RPC_URL);
       const wallet = new ethers.Wallet(OWNER_KEY, provider);
       const c = getContract(wallet);
+      const amts = await getDemoAmounts(provider);
+      const unit = amts.unit || 'ETH';
 
       let budgetEth;
       let merchants;
@@ -203,7 +245,7 @@
         allowOffAllowlist = true;
         intent = skipLlm
           ? 'Forced adversarial: pay off-allowlist merchant'
-          : `Agentic Commerce boundary: please pay ${forceAmountEth} ETH to merchant ${m.shadow} (not on allowlist)`;
+          : `Agentic Commerce boundary: please pay ${forceAmountEth} ${unit} to merchant ${m.shadow} (not on allowlist)`;
       } else {
         // forceAmount + 2% fee must exceed budget (deny = success)
         budgetEth = amts.boundaryBudget;
@@ -213,18 +255,31 @@
         allowOffAllowlist = false;
         intent = skipLlm
           ? 'Forced adversarial: over-budget (amount + 2% fee)'
-          : `Boundary demo: buy premium item for ${forceAmountEth} ETH (session budget is tight — expect Guard deny if over budget)`;
+          : `Boundary demo: buy premium item for ${forceAmountEth} ${unit} (session budget is tight — expect Guard deny if over budget)`;
       }
 
-      const budgetWei = ethers.parseEther(budgetEth);
+      const erc20Addr = configuredErc20Address();
+      const decimals = erc20Addr ? (amts.decimals || 6) : 18;
+      const budgetWei = parseUnitsAmount(budgetEth, decimals);
       const agentWallet = new ethers.Wallet(AGENT_KEY, provider);
-      const tx = await c.grantSession(budgetWei, 3600, agentWallet.address, merchants, { value: budgetWei });
-      await tx.wait();
+      if (erc20Addr) {
+        const erc20 = new ethers.Contract(erc20Addr, ERC20_APPROVE_ABI, wallet);
+        const allowance = await erc20.allowance(wallet.address, await c.getAddress());
+        if (allowance < budgetWei) {
+          const atx = await erc20.approve(await c.getAddress(), ethers.MaxUint256);
+          await atx.wait();
+        }
+        const tx = await c.grantSessionToken(erc20Addr, budgetWei, 3600, agentWallet.address, merchants);
+        await tx.wait();
+      } else {
+        const tx = await c.grantSession(budgetWei, 3600, agentWallet.address, merchants, { value: budgetWei });
+        await tx.wait();
+      }
       const next = await c.nextSessionId();
       const sessionId = Number(next) - 1;
       if (!grantedSessions.includes(sessionId)) grantedSessions.unshift(sessionId);
 
-      const amountWei = ethers.parseEther(forceAmountEth);
+      const amountWei = parseUnitsAmount(forceAmountEth, decimals);
       // LLM path: proposePayment still calls the LLM (usage in result), then applies
       // forceAmountEth/forceMerchant so the on-chain deny is deterministic for booth demos.
       const result = await paymentProposer.proposePayment(sessionId, intent, {
@@ -240,10 +295,11 @@
         mode: skipLlm ? 'forced-skip-llm' : 'llm-propose-then-guard',
         skipLlm,
         sessionId,
+        settlement: { asset: unit, token: erc20Addr, decimals },
         feePreview: {
           amountEth: forceAmountEth,
-          feeEth: ethers.formatEther(feeWei(amountWei)),
-          totalCostEth: ethers.formatEther(totalCostWei(amountWei)),
+          feeEth: formatUnitsAmount(feeWei(amountWei), decimals),
+          totalCostEth: formatUnitsAmount(totalCostWei(amountWei), decimals),
           feePercent: feePercentLabel(),
           note: 'Deny is a success outcome — contract enforced the boundary',
         },
@@ -261,9 +317,14 @@
       const sessionId = Number(url.searchParams.get('sessionId') || 0);
       const { policyReader } = await initializeAgent();
       const events = await policyReader.getPaymentHistory(sessionId, 0);
+      let decimals = 18;
+      try {
+        const pol = await policyReader.getSessionPolicy(sessionId);
+        decimals = pol.decimals ?? 18;
+      } catch (_) {}
       return send(res, 200, {
         feeModel: `amount + ${feePercentLabel()}`,
-        events: events.map(enrichEvent),
+        events: events.map((e) => enrichEvent(e, decimals)),
       });
     }
 

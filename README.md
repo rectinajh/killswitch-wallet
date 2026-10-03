@@ -21,10 +21,23 @@ You grant a time-bounded Session Key (budget · merchant allowlist · deadline).
 
 ## Live on Arbitrum Sepolia (`chainId` `421614`)
 
+### USDG settlement (current)
+
+| | |
+|--|--|
+| SessionPolicy | [`0x9Cbe0de60e325347bfCE7517410B8728eA78b3cA`](https://sepolia.arbiscan.io/address/0x9Cbe0de60e325347bfCE7517410B8728eA78b3cA) |
+| MockUSDG | [`0x07215B977D8636A273b0Cb3eCc5915329A3534f0`](https://sepolia.arbiscan.io/address/0x07215B977D8636A273b0Cb3eCc5915329A3534f0) |
+| Grant (2 USDG) | [`0x7b60…43bf`](https://sepolia.arbiscan.io/tx/0x7b608ce14236c8281050ea7826cad2ca180bc752729460d39a8fb4bc9f5143bf) |
+| `PaymentExecuted` (0.5 USDG) | [`0x8e65…01bb`](https://sepolia.arbiscan.io/tx/0x8e65896892a13db06ca148a88161ce3810c13bb719035d29d5edd91b340b01bb) |
+| `PaymentDenied` (Shadow Shop) | [`0x8b0c…098c`](https://sepolia.arbiscan.io/tx/0x8b0c1eb81c6a7d20b4bb875741b156842c624b2c17cdd8913bde597fdb14098c) |
+
+Set `PAYMENT_TOKEN=USDG` + `USDG_TOKEN_ADDRESS` (or `PAYMENT_TOKEN=USDC` for Circle). Details: [`docs/USDG_ROADMAP.md`](docs/USDG_ROADMAP.md).
+
+### Native ETH (qualification path)
+
 | | |
 |--|--|
 | Contract | [`0x5A035E67d5b5A895e71e14B6C9201952C81350df`](https://sepolia.arbiscan.io/address/0x5A035E67d5b5A895e71e14B6C9201952C81350df) |
-| Deploy block | `315227756` |
 | Session 4 grant | [`0xde3e…4303`](https://sepolia.arbiscan.io/tx/0xde3ef396d1b7fc0cb04c170df4841d0f672c6dce04429e545bd8fbe9f2ee4303) |
 | `PaymentExecuted` (coffee) | [`0x1fbe…7d0c`](https://sepolia.arbiscan.io/tx/0x1fbe7e9d4f8060b7ab3fc91bd831cfdc9f383fd65bea1dc07426c9295aed7d0c) |
 | `PaymentDenied` (Shadow Shop) | [`0x6099…3ff6`](https://sepolia.arbiscan.io/tx/0x609919e0fb25c503af5b9ab7632669ae07be0ffca0a1d547fd34f3b3d1383ff6) |
@@ -34,7 +47,7 @@ Submission media: [`docs/submission/`](docs/submission/) · 90s pitch: [`docs/PI
 
 ## Demo contrast (what judges should see)
 
-1. In-limit checkout → `PaymentExecuted` + credential (Arbiscan link)
+1. In-limit checkout → `PaymentExecuted` + credential (ETH or USDG/USDC)
 2. Over-budget (amount + 2% fee) → `PaymentDenied`
 3. Off-allowlist / Shadow Shop → `PaymentDenied`
 4. User Freeze / Close → agent loses capability / refund

@@ -13,8 +13,14 @@ import {
   resolveAgentPrivateKey,
   resolveChainLabel,
   explorerUrlForTx,
+  configuredErc20Address,
+  parseUnitsAmount,
+  formatUnitsAmount,
+  readTokenMeta,
+  CIRCLE_USDC_ARB_SEPOLIA,
 } from '../../agent/dist/index.js';
 import { buildAgentContextPreview } from '../../agent/dist/agent-context.js';
+import { decorateBoothHtml } from './booth-html-decorate.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '../..');
@@ -73,7 +79,11 @@ function commerceCatalog() {
   ];
 }
 
-
+const ERC20_APPROVE_ABI = [
+  'function balanceOf(address) view returns (uint256)',
+  'function allowance(address owner, address spender) view returns (uint256)',
+  'function approve(address spender, uint256 amount) returns (bool)',
+];
 
 function refreshEnv() {
   // On Vercel, platform env is source of truth — never override with a local .env
@@ -110,7 +120,7 @@ function getContract(signerOrProvider, contractAddress) {
 }
 
 
-/** Local Anvil keeps large demo amounts; public testnets use faucet-sized wei. */
+/** Local Anvil keeps large demo amounts; public testnets use faucet-sized units. */
 async function getDemoAmounts(provider) {
   try {
     const net = await provider.getNetwork();
@@ -128,25 +138,48 @@ async function getDemoAmounts(provider) {
         coffeeQuote: '0.02',
         apiQuote: '0.015',
         shadowQuote: '0.01',
+        unit: 'ETH',
+        decimals: 18,
       };
     }
   } catch (_) {}
-  // Arbitrum Sepolia / other public RPCs — fit faucet leftovers after gas
+  const erc20 = configuredErc20Address();
+  if (erc20) {
+    const label = (process.env.PAYMENT_TOKEN || 'USDC').toUpperCase();
+    return {
+      local: false,
+      defaultGrant: '2',
+      autoGrant: '2',
+      autoProposeIntent: `Buy coffee for 0.5 ${label}`,
+      autoProposeAmount: '0.5',
+      boundaryBudget: '1',
+      boundaryForce: '1.1',
+      merchantBudget: '1',
+      merchantForce: '0.2',
+      coffeeQuote: '0.5',
+      apiQuote: '0.4',
+      shadowQuote: '0.1',
+      unit: label,
+      decimals: 6,
+      token: erc20,
+    };
+  }
+  // Arbitrum Sepolia / other public RPCs — native ETH faucet leftovers
   return {
     local: false,
     defaultGrant: '0.0008',
     autoGrant: '0.0008',
     autoProposeIntent: 'Buy coffee for 0.0003 ETH',
     autoProposeAmount: '0.0003',
-    // 0.000495 + 2% = 0.0005049 > 0.0005
     boundaryBudget: '0.0005',
-    // 0.0006 + 2% = 0.000612 > 0.0005 → PaymentDenied
     boundaryForce: '0.0006',
     merchantBudget: '0.0005',
     merchantForce: '0.0001',
     coffeeQuote: '0.0003',
     apiQuote: '0.00025',
     shadowQuote: '0.0001',
+    unit: 'ETH',
+    decimals: 18,
   };
 }
 
@@ -180,22 +213,23 @@ async function readBody(req) {
   return JSON.parse(Buffer.concat(chunks).toString('utf8'));
 }
 
-function enrichEvent(e) {
+function enrichEvent(e, decimals = 18) {
   const amountWei = BigInt(e.amount?.toString?.() ?? e.amount ?? 0);
   const fee =
     e.fee !== undefined && e.fee !== null
       ? BigInt(e.fee.toString())
       : feeWei(amountWei);
+  const fmt = (v) => formatUnitsAmount(v, decimals);
   return {
     type: e.type,
     sessionId: e.sessionId,
     merchant: e.merchant,
     amount: amountWei.toString(),
-    amountEth: ethers.formatEther(amountWei),
+    amountEth: fmt(amountWei),
     fee: fee.toString(),
-    feeEth: ethers.formatEther(fee),
+    feeEth: fmt(fee),
     totalCost: totalCostWei(amountWei).toString(),
-    totalCostEth: ethers.formatEther(totalCostWei(amountWei)),
+    totalCostEth: fmt(totalCostWei(amountWei)),
     feePercent: feePercentLabel(),
     reason: e.reason,
     description: e.description,
@@ -231,7 +265,8 @@ export async function handler(req, res) {
     }
 
     if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) {
-      const html = fs.readFileSync(path.join(__dirname, 'index.html'));
+      const raw = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
+      const html = decorateBoothHtml(raw);
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
       return res.end(html);
     }
@@ -341,6 +376,10 @@ export async function handler(req, res) {
             skuId: item?.id || 'off-catalog',
             merchant,
             amountEth,
+            amount: amountEth,
+            token: result.credential?.token || amts.unit || 'ETH',
+            tokenAddress: result.credential?.tokenAddress,
+            decimals: result.credential?.decimals ?? amts.decimals,
             description: item?.description || intent,
             sessionId,
             transactionHash: result.transactionHash,
@@ -356,6 +395,10 @@ export async function handler(req, res) {
               skuId: item?.id || 'off-catalog',
               merchant,
               amountEth,
+              amount: amountEth,
+              token: result.credential?.token || amts.unit || 'ETH',
+              tokenAddress: result.credential?.tokenAddress,
+              decimals: result.credential?.decimals ?? amts.decimals,
               reason: denied.reason,
               sessionId,
               transactionHash: result.transactionHash,

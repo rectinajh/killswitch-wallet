@@ -120,7 +120,7 @@ contract SessionPolicyTest is Test {
         (, , , uint256 spent, , , , ) = policy.getSessionPolicy(sessionId);
         assertEq(spent, 0.102 ether); // 0.1 + 2% fee
 
-        (, , , , uint256 feesAccrued, , , ) = policy.sessions(sessionId);
+        (, , , , uint256 feesAccrued, , , , ) = policy.sessions(sessionId);
         assertEq(feesAccrued, 0.002 ether);
     }
 

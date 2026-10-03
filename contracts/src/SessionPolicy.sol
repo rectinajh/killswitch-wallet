@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {ISessionCapability} from "./interfaces/ISessionCapability.sol";
+import {IERC20} from "./interfaces/IERC20.sol";
 
 /**
  * @title SessionPolicy
@@ -23,6 +24,7 @@ contract SessionPolicy is ISessionCapability {
         address[] merchantAllowlist;
         bool frozen;
         bool active;
+        address token; // address(0) = native ETH; else ERC-20 (USDG/USDC)
     }
 
     uint256 public nextSessionId;
@@ -64,6 +66,7 @@ contract SessionPolicy is ISessionCapability {
 
     event SessionFrozen(uint256 indexed sessionId, address indexed by);
     event SessionClosed(uint256 indexed sessionId);
+    event SessionTokenSet(uint256 indexed sessionId, address indexed token);
 
     error Unauthorized();
     error SessionNotActive();
@@ -123,6 +126,56 @@ contract SessionPolicy is ISessionCapability {
         }
 
         emit SessionGranted(sessionId, msg.sender, agent, budget, s.deadline, merchants);
+        emit SessionTokenSet(sessionId, address(0));
+    }
+
+    /**
+     * @notice Grant a session escrowed in ERC-20 (USDG, Circle USDC, or a 6-decimal mock).
+     * @dev Owner must `approve` this contract for `budget` before calling. Guard rules match ETH.
+     */
+    function grantSessionToken(
+        address token,
+        uint256 budget,
+        uint256 duration,
+        address agent,
+        address[] calldata merchants
+    ) external returns (uint256 sessionId) {
+        if (
+            token == address(0) ||
+            budget == 0 ||
+            duration == 0 ||
+            merchants.length == 0 ||
+            agent == address(0)
+        ) {
+            revert InvalidParameters();
+        }
+
+        sessionId = nextSessionId++;
+        Session storage s = sessions[sessionId];
+
+        s.owner = msg.sender;
+        s.agent = agent;
+        s.budget = budget;
+        s.spent = 0;
+        s.feesAccrued = 0;
+        s.deadline = block.timestamp + duration;
+        s.merchantAllowlist = merchants;
+        s.frozen = false;
+        s.active = true;
+        s.token = token;
+
+        for (uint256 i = 0; i < merchants.length; i++) {
+            isMerchantAllowed[sessionId][merchants[i]] = true;
+        }
+
+        _safeTransferFrom(token, msg.sender, address(this), budget);
+
+        emit SessionGranted(sessionId, msg.sender, agent, budget, s.deadline, merchants);
+        emit SessionTokenSet(sessionId, token);
+    }
+
+    function getSessionToken(uint256 sessionId) external view returns (address) {
+        return sessions[sessionId].token;
     }
 
     /**
@@ -168,8 +221,7 @@ contract SessionPolicy is ISessionCapability {
         s.spent += totalCost;
         s.feesAccrued += fee;
 
-        (bool success, ) = merchant.call{value: amount}("");
-        require(success, "Transfer failed");
+        _payOut(s.token, merchant, amount);
 
         // Content receipt id — NOT the chain tx hash
         bytes32 receiptId = keccak256(
@@ -206,8 +258,7 @@ contract SessionPolicy is ISessionCapability {
         uint256 refund = s.budget - s.spent + s.feesAccrued;
 
         if (refund > 0) {
-            (bool success, ) = s.owner.call{value: refund}("");
-            require(success, "Refund failed");
+            _payOut(s.token, s.owner, refund);
         }
 
         emit SessionClosed(sessionId);
@@ -265,5 +316,28 @@ contract SessionPolicy is ISessionCapability {
         returns (bool)
     {
         return isMerchantAllowed[sessionId][merchant];
+    }
+
+    function _payOut(address token, address to, uint256 amount) internal {
+        if (token == address(0)) {
+            (bool success, ) = to.call{value: amount}("");
+            require(success, "Transfer failed");
+            return;
+        }
+        _safeTransfer(token, to, amount);
+    }
+
+    function _safeTransfer(address token, address to, uint256 amount) internal {
+        (bool ok, bytes memory data) = token.call(
+            abi.encodeWithSelector(IERC20.transfer.selector, to, amount)
+        );
+        require(ok && (data.length == 0 || abi.decode(data, (bool))), "Transfer failed");
+    }
+
+    function _safeTransferFrom(address token, address from, address to, uint256 amount) internal {
+        (bool ok, bytes memory data) = token.call(
+            abi.encodeWithSelector(IERC20.transferFrom.selector, from, to, amount)
+        );
+        require(ok && (data.length == 0 || abi.decode(data, (bool))), "Transfer failed");
     }
 }

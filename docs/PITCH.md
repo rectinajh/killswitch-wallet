@@ -2,14 +2,14 @@
 
 **Problem:** An LLM that can pay will overspend or pay the wrong merchant. Prompts are not a control plane.
 
-**Solution:** Session Key on Arbitrum — budget, allowlist, deadline. Agent proposes; `SessionPolicy` guards. `PaymentDenied` is success. User Freeze / Close+refund.
+**Solution:** Session Key on Arbitrum — budget, allowlist, deadline. Agent proposes; `SessionPolicy` guards. `PaymentDenied` is success. User Freeze / Close+refund. Settlement in **native ETH or ERC-20 (USDG / USDC)**.
 
-**Proof (Arbitrum Sepolia):**
-- Contract: https://sepolia.arbiscan.io/address/0x5A035E67d5b5A895e71e14B6C9201952C81350df
-- Executed: https://sepolia.arbiscan.io/tx/0xb77a6145d27ba39875f24ddc4a6e1192cae8583a4e824ed6b7ae404df9dc629a
-- Denied (budget): https://sepolia.arbiscan.io/tx/0x99deb3f987d68d178310228a45510bddc43d64bd6296a3f46ea6cc61332126ac
-- Denied (merchant): https://sepolia.arbiscan.io/tx/0x9d33cfb55b08d9ce6fcf4dd4cf7f71105d13726a679b232a9c9ec4771188c88c
+**Proof (Arbitrum Sepolia — USDG):**
+- SessionPolicy: https://sepolia.arbiscan.io/address/0x9Cbe0de60e325347bfCE7517410B8728eA78b3cA
+- MockUSDG: https://sepolia.arbiscan.io/address/0x07215B977D8636A273b0Cb3eCc5915329A3534f0
+- Executed (0.5 USDG): https://sepolia.arbiscan.io/tx/0x8e65896892a13db06ca148a88161ce3810c13bb719035d29d5edd91b340b01bb
+- Denied (merchant): https://sepolia.arbiscan.io/tx/0x8b0c1eb81c6a7d20b4bb875741b156842c624b2c17cdd8913bde597fdb14098c
 
 **Why Arbitrum:** Cheap session micropayments; same EVM SessionPolicy maps to ERC-4337 / ZeroDev Smart Sessions later.
 
-**Ask / next:** USDG or USDC settlement; optional Robinhood Chain deploy (reserved prize pool).
+**Ask / next:** Swap MockUSDG for Paxos USDG or Circle USDC on mainnet; optional Robinhood Chain dual-deploy (reserved prize pool).

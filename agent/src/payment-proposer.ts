@@ -2,6 +2,7 @@ import { ethers } from 'ethers';
 import { KilnClient, KilnResponse, KilnUsage } from './kiln-client.js';
 import { PolicyReader } from './policy-reader.js';
 import { feeWei, totalCostWei, feePercentLabel } from './fees.js';
+import { formatUnitsAmount, isNativeToken, parseUnitsAmount } from './token.js';
 
 const SESSION_POLICY_ABI = [
   'function proposeOrPay(uint256 sessionId, address merchant, uint256 amount, string description) external',
@@ -60,9 +61,13 @@ export interface CommercePaymentCredential {
   explorerUrl?: string;
   sessionId: number;
   merchant?: string;
+  /** Human amount in session asset units (ETH or USDC/USDG) */
   amountEth?: string;
-  /** Native ETH today; USDG/USDC when PAYMENT_TOKEN is set */
+  amount?: string;
+  /** Native ETH or ERC-20 symbol */
   token?: string;
+  tokenAddress?: string;
+  decimals?: number;
   status: 'executed' | 'denied' | 'unknown';
 }
 
@@ -161,12 +166,14 @@ export function explorerUrlForTx(chainId: number, txHash: string): string | unde
 export function buildCommercePaymentCredential(
   result: PaymentResult,
   sessionId: number,
-  chainId: number
+  chainId: number,
+  settlement?: { symbol: string; token: string; decimals: number }
 ): CommercePaymentCredential | undefined {
   if (!result.transactionHash) return undefined;
   const denied = result.events.find((e) => e.type === 'denied');
   const executed = result.events.find((e) => e.type === 'executed');
   const last = denied || executed;
+  const symbol = settlement?.symbol || (process.env.PAYMENT_TOKEN || 'ETH').toUpperCase();
   return {
     type: 'CommercePaymentCredential',
     // ONLY ethers tx hash — never on-chain receiptId
@@ -177,7 +184,10 @@ export function buildCommercePaymentCredential(
     sessionId,
     merchant: last?.merchant,
     amountEth: last?.amount,
-    token: (process.env.PAYMENT_TOKEN || 'ETH').toUpperCase(),
+    amount: last?.amount,
+    token: symbol,
+    tokenAddress: settlement?.token,
+    decimals: settlement?.decimals,
     status: denied ? 'denied' : executed ? 'executed' : 'unknown',
   };
 }
@@ -243,10 +253,14 @@ export class PaymentProposer {
 
       const remaining = policy.budget - policy.spent;
       const deadline = new Date(Number(policy.deadline) * 1000);
+      const decimals = policy.decimals ?? 18;
+      const symbol = policy.symbol || (isNativeToken(policy.token) ? 'ETH' : 'TOKEN');
+      const fmt = (v: bigint) => formatUnitsAmount(v, decimals);
 
       console.log('[PaymentProposer] Current policy:');
-      console.log(`  Budget: ${ethers.formatEther(policy.budget)} ETH`);
-      console.log(`  Remaining: ${ethers.formatEther(remaining)} ETH`);
+      console.log(`  Token: ${symbol}${isNativeToken(policy.token) ? ' (native)' : ` ${policy.token}`}`);
+      console.log(`  Budget: ${fmt(policy.budget)} ${symbol}`);
+      console.log(`  Remaining: ${fmt(remaining)} ${symbol}`);
       console.log(`  Agent: ${policy.agent}`);
       console.log(`  Allowed merchants: ${policy.merchants.length}`);
       console.log(`  Deadline: ${deadline.toISOString()}`);
@@ -270,8 +284,8 @@ export class PaymentProposer {
         console.log('[PaymentProposer] Calling LLM for proposal...');
         kilnResponse = await this.kiln.proposePayment(
           {
-            budget: ethers.formatEther(policy.budget),
-            remaining: ethers.formatEther(remaining),
+            budget: fmt(policy.budget),
+            remaining: fmt(remaining),
             merchants: policy.merchants,
             deadline: deadline,
           },
@@ -321,15 +335,15 @@ export class PaymentProposer {
         proposal.merchant = policy.merchants[0];
       }
 
-      const amountWei = ethers.parseEther(proposal.amount);
+      const amountWei = parseUnitsAmount(proposal.amount, decimals);
       const fee = feeWei(amountWei);
       const total = totalCostWei(amountWei);
 
       console.log('[PaymentProposer] Proposal:');
       console.log(`  Merchant: ${proposal.merchant}`);
-      console.log(`  Amount: ${proposal.amount} ETH (${amountWei} wei)`);
-      console.log(`  Fee (${feePercentLabel()}): ${ethers.formatEther(fee)} ETH (${fee} wei)`);
-      console.log(`  Total cost vs budget: ${ethers.formatEther(total)} ETH`);
+      console.log(`  Amount: ${proposal.amount} ${symbol} (${amountWei} base units)`);
+      console.log(`  Fee (${feePercentLabel()}): ${fmt(fee)} ${symbol} (${fee} base)`);
+      console.log(`  Total cost vs budget: ${fmt(total)} ${symbol}`);
       console.log(`  Description: ${proposal.description}`);
       console.log(`  Reasoning: ${proposal.reasoning}`);
 
@@ -346,7 +360,7 @@ export class PaymentProposer {
       const receipt = await tx.wait();
       console.log(`[PaymentProposer] Transaction confirmed in block ${receipt.blockNumber}`);
 
-      const events = this.parsePaymentEvents(receipt);
+      const events = this.parsePaymentEvents(receipt, decimals);
 
       const result: PaymentResult = {
         success: true,
@@ -356,9 +370,9 @@ export class PaymentProposer {
           ...proposal,
           amountWei: amountWei.toString(),
           feeWei: fee.toString(),
-          feeEth: ethers.formatEther(fee),
+          feeEth: fmt(fee),
           totalCostWei: total.toString(),
-          totalCostEth: ethers.formatEther(total),
+          totalCostEth: fmt(total),
         },
         usage: {
           propose: toUsageSplit(kilnResponse?.usage),
@@ -367,7 +381,11 @@ export class PaymentProposer {
 
       const network = await this.signer.provider?.getNetwork();
       const chainId = network ? Number(network.chainId) : 31337;
-      result.credential = buildCommercePaymentCredential(result, sessionId, chainId);
+      result.credential = buildCommercePaymentCredential(result, sessionId, chainId, {
+        symbol,
+        token: policy.token,
+        decimals,
+      });
 
       if (options.explain !== false) {
         try {
@@ -391,8 +409,12 @@ export class PaymentProposer {
     }
   }
 
-  private parsePaymentEvents(receipt: ethers.TransactionReceipt): PaymentEventDetail[] {
+  private parsePaymentEvents(
+    receipt: ethers.TransactionReceipt,
+    decimals = 18
+  ): PaymentEventDetail[] {
     const events: PaymentEventDetail[] = [];
+    const fmt = (v: bigint) => formatUnitsAmount(v, decimals);
 
     for (const log of receipt.logs) {
       try {
@@ -409,11 +431,11 @@ export class PaymentProposer {
           events.push({
             type: 'proposed',
             merchant: parsed.args.merchant,
-            amount: ethers.formatEther(amountWei),
+            amount: fmt(amountWei),
             amountWei: amountWei.toString(),
-            fee: ethers.formatEther(fee),
+            fee: fmt(fee),
             feeWei: fee.toString(),
-            totalCost: ethers.formatEther(totalCostWei(amountWei)),
+            totalCost: fmt(totalCostWei(amountWei)),
             totalCostWei: totalCostWei(amountWei).toString(),
           });
         } else if (parsed.name === 'PaymentExecuted') {
@@ -424,11 +446,11 @@ export class PaymentProposer {
           events.push({
             type: 'executed',
             merchant: parsed.args.merchant,
-            amount: ethers.formatEther(amountWei),
+            amount: fmt(amountWei),
             amountWei: amountWei.toString(),
-            fee: ethers.formatEther(feeAmt),
+            fee: fmt(feeAmt),
             feeWei: feeAmt.toString(),
-            totalCost: ethers.formatEther(amountWei + feeAmt),
+            totalCost: fmt(amountWei + feeAmt),
             totalCostWei: (amountWei + feeAmt).toString(),
             receiptId: receiptId,
           });
@@ -438,11 +460,11 @@ export class PaymentProposer {
           events.push({
             type: 'denied',
             merchant: parsed.args.merchant,
-            amount: ethers.formatEther(amountWei),
+            amount: fmt(amountWei),
             amountWei: amountWei.toString(),
-            fee: ethers.formatEther(feeAmt),
+            fee: fmt(feeAmt),
             feeWei: feeAmt.toString(),
-            totalCost: ethers.formatEther(totalCostWei(amountWei)),
+            totalCost: fmt(totalCostWei(amountWei)),
             totalCostWei: totalCostWei(amountWei).toString(),
             reason: parsed.args.reason,
           });

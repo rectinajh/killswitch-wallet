@@ -21,25 +21,21 @@ Optional extras (not counting toward the 4 slots, useful in pitch deck):
 
 | File | Length | Notes |
 |------|--------|--------|
-| `killswitch-arbitrum-demo.mp4` | ~90s | Captioned slideshow (no mic). Prefer a live Console recording if you can. Pitch: [`docs/PITCH.md`](../PITCH.md) |
+| `killswitch-arbitrum-demo.mp4` | 90s | Live Console + Arbiscan stills from session 4, English TTS voiceover. Pitch: [`docs/PITCH.md`](../PITCH.md) |
 
-HackQuest often wants **≤ 3 minutes**. This file is under that limit. For a stronger entry, re-record with voiceover using the script below (or screen-record `http://127.0.0.1:8787` while clicking Grant → checkout → Shadow deny → Freeze).
+HackQuest often wants **≤ 3 minutes**. This file is 90s with audio.
 
-### English voiceover (~60–90s)
+### English voiceover (~90s)
 
-1. KillSwitch is agent spend controls on Arbitrum.  
-2. You grant a Session Key: budget, merchant allowlist, deadline — not your master key.  
-3. The AI agent only proposes. SessionPolicy guards on-chain.  
-4. In-limit checkout becomes PaymentExecuted with an Arbiscan link.  
-5. Off-allowlist or over-budget becomes PaymentDenied — deny is success.  
-6. You can Freeze or Close and refund anytime.  
-7. Contract live on Arbitrum Sepolia: `0x5A035E67d5b5A895e71e14B6C9201952C81350df`.
+Script used in the mp4: [`demo-voiceover.txt`](demo-voiceover.txt).
 
-### On-chain links to show in a live recording
+### On-chain links in this recording (session 4)
 
 - Contract: https://sepolia.arbiscan.io/address/0x5A035E67d5b5A895e71e14B6C9201952C81350df  
-- Executed: https://sepolia.arbiscan.io/tx/0xb77a6145d27ba39875f24ddc4a6e1192cae8583a4e824ed6b7ae404df9dc629a  
-- Denied: https://sepolia.arbiscan.io/tx/0x99deb3f987d68d178310228a45510bddc43d64bd6296a3f46ea6cc61332126ac  
+- Grant: https://sepolia.arbiscan.io/tx/0xde3ef396d1b7fc0cb04c170df4841d0f672c6dce04429e545bd8fbe9f2ee4303  
+- Executed (coffee checkout): https://sepolia.arbiscan.io/tx/0x1fbe7e9d4f8060b7ab3fc91bd831cfdc9f383fd65bea1dc07426c9295aed7d0c  
+- Denied (Shadow Shop): https://sepolia.arbiscan.io/tx/0x609919e0fb25c503af5b9ab7632669ae07be0ffca0a1d547fd34f3b3d1383ff6  
+- Freeze: https://sepolia.arbiscan.io/tx/0x0bff1b859133bceddc4c836bf2c81684c4eae13bff91b21edd6ad205e22d74bf  
 
 ## Regenerate video
 

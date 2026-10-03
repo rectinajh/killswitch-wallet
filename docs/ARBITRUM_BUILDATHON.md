@@ -16,7 +16,7 @@ KillSwitch is **agent spend controls on Arbitrum**: the user grants a Session Ke
 | Product-Market Fit | Offline / meeting → agent pays coffee or API bills without vault risk |
 | Innovation | Deny-as-success + dual evidence (LLM proposal vs chain) |
 | Real problem | Prompts are not a control plane; policy must be on-chain |
-| Extra (USDG) | See [`USDG_ROADMAP.md`](USDG_ROADMAP.md) — not required for qualification |
+| Extra (USDG) | **Live** ERC-20 settlement via `grantSessionToken` — [`USDG_ROADMAP.md`](USDG_ROADMAP.md) |
 
 ## P0 bring-up (Arbitrum Sepolia)
 
@@ -57,7 +57,7 @@ KillSwitch is **agent spend controls on Arbitrum**: the user grants a Session Ke
 
 ## P1 / P2 (optional)
 
-- **P1:** ERC-20 / USDG settlement ([`USDG_ROADMAP.md`](USDG_ROADMAP.md)), ZeroDev/AA story ([`AA_SESSION_KEY.md`](AA_SESSION_KEY.md))  
+- **P1:** ERC-20 / USDG settlement **done** ([`USDG_ROADMAP.md`](USDG_ROADMAP.md)); ZeroDev/AA story ([`AA_SESSION_KEY.md`](AA_SESSION_KEY.md))  
 - **P2:** Robinhood Chain second deploy, Stylus sidecar — not required for a solid Overall/Promising entry  
 
 ## Legacy

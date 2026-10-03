@@ -1,0 +1,15 @@
+KillSwitch Wallet. Agent spend controls on Arbitrum.
+
+The problem: an LLM that can pay will overspend or pay the wrong merchant. Prompts are not a control plane. There is no hard budget, no allowlist, and no kill switch.
+
+The solution is a Session Key. You grant a budget, a merchant allowlist, and a deadline — not your master key. The agent only proposes. SessionPolicy guards every payment on-chain.
+
+User grants. Agent proposes. The contract executes or denies. Then you freeze or close.
+
+Payment Denied is success. Over budget or off allowlist is recorded evidence. Deny means no merchant settlement.
+
+We are live on Arbitrum Sepolia. SessionPolicy is deployed. Judges can open Executed and Denied transactions on Arbiscan.
+
+Why Arbitrum: cheap session micropayments, and the same EVM policy maps later to ERC-4337 Smart Sessions.
+
+Ask: settle in USDG or USDC, optional Robinhood Chain. KillSwitch is live now. Grant, checkout, denied, freeze. That is the whole product.

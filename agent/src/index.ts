@@ -17,6 +17,17 @@ export {
 } from './payment-proposer.js';
 export { feeWei, totalCostWei, feePercentLabel, FEE_PERCENT } from './fees.js';
 export { buildAgentSystemPrompt, buildAgentContextPreview } from './agent-context.js';
+export {
+  CIRCLE_USDC_ARB_SEPOLIA,
+  configuredErc20Address,
+  configuredPaymentLabel,
+  readTokenMeta,
+  parseUnitsAmount,
+  formatUnitsAmount,
+  isNativeToken,
+  ERC20_MIN_ABI,
+} from './token.js';
+export type { SettlementAsset } from './token.js';
 export type {
   ProposePaymentOptions,
   PaymentResult,

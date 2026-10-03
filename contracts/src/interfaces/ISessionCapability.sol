@@ -5,7 +5,7 @@ pragma solidity ^0.8.24;
  * @title ISessionCapability
  * @notice Capability surface shared by KillSwitch SessionPolicy today and
  *         a future ERC-4337 / Smart Session module tomorrow.
- * @dev Demo implements this via SessionPolicy (EOA + eth value escrow).
+ * @dev Demo implements this via SessionPolicy (EOA + ETH or ERC-20 escrow).
  *      Production path: wrap the same rules as a Validator/Session Key module
  *      on a Smart Account (see docs/AA_SESSION_KEY.md).
  */
@@ -17,6 +17,18 @@ interface ISessionCapability {
         address agent,
         address[] calldata merchants
     ) external payable returns (uint256 sessionId);
+
+    /// @notice Same Guard as grantSession, escrowed in ERC-20 (USDG/USDC). token != 0.
+    function grantSessionToken(
+        address token,
+        uint256 budget,
+        uint256 duration,
+        address agent,
+        address[] calldata merchants
+    ) external returns (uint256 sessionId);
+
+    /// @notice address(0) = native ETH; otherwise ERC-20 used for payouts and refunds
+    function getSessionToken(uint256 sessionId) external view returns (address);
 
     /// @notice Bound agent proposes; contract executes or records denial
     function proposeOrPay(

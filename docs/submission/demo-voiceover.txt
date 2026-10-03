@@ -1,0 +1,11 @@
+KillSwitch is agent spend control on Arbitrum. You do not hand an AI your master key. You grant a Session Key: a budget, a merchant allowlist, and a deadline. This is a limited capability, not custody of the wallet.
+
+Here is a live Policy session on Arbitrum Sepolia. Session four has a budget of zero point zero zero zero eight ETH. The agent can only propose payments. SessionPolicy guards every transfer on-chain, including a two percent fee inside the budget check.
+
+In-limit coffee checkout becomes Payment Executed. Zero point zero zero zero three ETH settles to the allowlisted merchant. Open Arbiscan. The transaction is success, with an internal transfer from the Guard contract, and Payment Executed in the event logs. Judges can click through from the console receipt to Sepolia Arbiscan.
+
+Off-allowlist Shadow Shop is Payment Denied. The reason is merchant not allowed. Deny is success: there is no merchant settlement, and the refusal is recorded on-chain as evidence. Prompt injection cannot spend past the Guard.
+
+Then the owner freezes the session. The kill switch revokes spend immediately. Remaining budget stays under the Guard until close or refund.
+
+Contract live on Arbitrum Sepolia, address zero x five A zero three five E. KillSwitch: grant, checkout, denied, freeze.
