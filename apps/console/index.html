@@ -2286,7 +2286,11 @@
         await refreshAgentContext().catch(() => {});
         await refreshSecurity().catch(() => {});
       } catch (e) {
-        $('result').textContent = e.message;
+        const msg = e.message || String(e);
+        $('result').textContent = msg;
+        if ($('mBudget')) $('mBudget').textContent = 'err';
+        if ($('statusText')) $('statusText').textContent = msg;
+        setMeaning('读链上 Policy 失败：' + msg, true);
       }
     })();
 

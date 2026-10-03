@@ -14,6 +14,14 @@
         llm,
         demoAmounts: await getDemoAmounts(new ethers.JsonRpcProvider(RPC_URL)).catch(() => null),
         demoMerchants: resolveDemoMerchants(),
+        chainId: await (async () => {
+          try {
+            const n = await new ethers.JsonRpcProvider(RPC_URL).getNetwork();
+            return Number(n.chainId);
+          } catch {
+            return null;
+          }
+        })(),
         settlement: {
           asset: process.env.PAYMENT_TOKEN || 'ETH',
           token: configuredErc20Address(),
