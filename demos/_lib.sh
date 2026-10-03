@@ -17,8 +17,13 @@ AGENT_KEY="${AGENT_PRIVATE_KEY:-${PRIVATE_KEY:-0x59c6995e998f97a5a0044966f094538
 AGENT_ADDR="${AGENT_ADDRESS:-$(cast wallet address --private-key "$AGENT_KEY")}"
 
 # Amounts: large on Anvil, faucet-sized on Arbitrum Sepolia / other public RPCs
-CHAIN_ID_HEX=$(cast chain-id --rpc-url "${RPC_URL:-http://127.0.0.1:8545}" 2>/dev/null || echo "0x7a69")
-CHAIN_ID=$((16#${CHAIN_ID_HEX#0x}))
+# cast chain-id prints decimal; eth_chainId JSON is hex — accept either
+CHAIN_ID_RAW=$(cast chain-id --rpc-url "${RPC_URL:-http://127.0.0.1:8545}" 2>/dev/null || echo "31337")
+if [[ "$CHAIN_ID_RAW" == 0x* || "$CHAIN_ID_RAW" == 0X* ]]; then
+  CHAIN_ID=$((16#${CHAIN_ID_RAW#0[xX]}))
+else
+  CHAIN_ID=$((10#$CHAIN_ID_RAW))
+fi
 if [[ "$CHAIN_ID" == "31337" ]]; then
   DEMO_SUCCESS_AMOUNT_WEI=50000000000000000          # 0.05 ETH
   DEMO_BUDGET_TIGHT_WEI=100000000000000000           # 0.1 ETH
@@ -28,13 +33,14 @@ if [[ "$CHAIN_ID" == "31337" ]]; then
   DEMO_BUDGET_MERCHANT_ETH=1
   DEMO_MERCHANT_AMOUNT_WEI=100000000000000000        # 0.1 ETH
 else
+  # Keep grants tiny so ~0.001 ETH faucet leftovers still work after deploy
   DEMO_SUCCESS_AMOUNT_WEI=300000000000000            # 0.0003 ETH
-  DEMO_BUDGET_TIGHT_WEI=500000000000000              # 0.0005 ETH
-  DEMO_BUDGET_TIGHT_ETH=0.0005
-  DEMO_OVER_AMOUNT_WEI=600000000000000               # 0.0006 → deny with 2% fee
-  DEMO_BUDGET_MERCHANT_WEI=500000000000000           # 0.0005 ETH
-  DEMO_BUDGET_MERCHANT_ETH=0.0005
-  DEMO_MERCHANT_AMOUNT_WEI=100000000000000           # 0.0001 ETH
+  DEMO_BUDGET_TIGHT_WEI=200000000000000              # 0.0002 ETH
+  DEMO_BUDGET_TIGHT_ETH=0.0002
+  DEMO_OVER_AMOUNT_WEI=250000000000000               # 0.00025 + 2% > 0.0002 → deny
+  DEMO_BUDGET_MERCHANT_WEI=150000000000000           # 0.00015 ETH
+  DEMO_BUDGET_MERCHANT_ETH=0.00015
+  DEMO_MERCHANT_AMOUNT_WEI=50000000000000            # 0.00005 ETH
 fi
 
 require_contract() {

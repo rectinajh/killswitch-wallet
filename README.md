@@ -89,11 +89,16 @@ KillSwitch is built as an **Agentic Commerce** scenario aligned with the AI × W
 | Check | `./scripts/check-arbitrum-path.sh` → `ARB_PATH_OK` |
 | Pitch / USDG | [`docs/ARBITRUM_BUILDATHON.md`](docs/ARBITRUM_BUILDATHON.md) · [`docs/USDG_ROADMAP.md`](docs/USDG_ROADMAP.md) |
 
-After deploy, paste **contract address + example tx URLs** here for judges:
+**Live on Arbitrum Sepolia** (`chainId` `421614`):
 
-- Contract: _(set after deploy)_  
-- Executed tx: _(Arbiscan)_  
-- Denied tx: _(Arbiscan)_  
+| | |
+|--|--|
+| Contract | [`0x5A035E67d5b5A895e71e14B6C9201952C81350df`](https://sepolia.arbiscan.io/address/0x5A035E67d5b5A895e71e14B6C9201952C81350df) |
+| Deploy block | `315227756` |
+| `PaymentExecuted` | [`0xb77a…629a`](https://sepolia.arbiscan.io/tx/0xb77a6145d27ba39875f24ddc4a6e1192cae8583a4e824ed6b7ae404df9dc629a) |
+| `PaymentDenied` (budget) | [`0x99de…26ac`](https://sepolia.arbiscan.io/tx/0x99deb3f987d68d178310228a45510bddc43d64bd6296a3f46ea6cc61332126ac) |
+| `PaymentDenied` (merchant) | [`0x9d33…c88c`](https://sepolia.arbiscan.io/tx/0x9d33cfb55b08d9ce6fcf4dd4cf7f71105d13726a679b232a9c9ec4771188c88c) |
+| Session grant | [`0x8c5b…8a49`](https://sepolia.arbiscan.io/tx/0x8c5b646a43b8a83c2dfabe4b29d706aeda06b3f51ce45bf3cb4143687f658a49) |
 
 ## Deploy (Vercel)
 
