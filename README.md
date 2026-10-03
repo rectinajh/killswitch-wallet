@@ -5,91 +5,21 @@
 [![Solidity](https://img.shields.io/badge/Solidity-0.8.24-blue.svg)](https://soliditylang.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.4-blue.svg)](https://www.typescriptlang.org/)
 
-**Agentic Commerce** with on-chain spend controls — agent discovers, quotes, and pays under a Session Key; the contract Guards; deny is recorded success (cypherpunk)
+**Agent spend controls on Arbitrum** — an AI agent discovers, quotes, and pays under a Session Key; `SessionPolicy` Guards on-chain; `PaymentDenied` is a recorded success.
 
-## Core thesis: Agentic Commerce
+Built for the [Arbitrum Open House Singapore Online Buildathon](https://www.hackquest.io/hackathons/Arbitrum-Open-House-Singapore-Online-Buildathon).
 
-**KillSwitch is a concrete Agentic Commerce demo:** an AI agent discovers a merchant, takes a quote, and pays *for you* — but only inside a **Session Key** (budget · whitelist · deadline). The agent **proposes**; `SessionPolicy` **Guards**; **`PaymentDenied` is a successful security outcome**; you can **Freeze** or **Close + refund**. Do not trust the model.
+## One-liner
 
-Product framing: Handbook-style **Agentic Commerce** is the story; Wallet / Session Key / Guard are the mechanism. Meeting-coffee / API-billing beats a generic “agent wallet” pitch.
+You grant a time-bounded Session Key (budget · merchant allowlist · deadline). The agent only **proposes**; the contract **guards**; you can **Freeze** or **Close + refund**. Do not trust the model.
 
-### Declared Function
+## Declared function
 
 **User grants a time-bounded, merchant-whitelisted budget; the agent checks out under that policy; the contract enforces and leaves a merchant-verifiable `CommercePaymentCredential` + on-chain events.**
 
-### User Need
+**User need:** Let an LLM buy coffee or settle an API bill while you are offline — without unbounded spend or silent off-allowlist payments.
 
-You want an LLM to buy coffee or settle an API bill while you are offline — without unbounded spend risk or silent off-allowlist payments.
-
-**Problem**: Traditional rails record *who paid whom*, not *who authorized it* or *under what session rules*. Prompts cannot be the policy.
-
-**Solution**: Discover → Quote → Session-authorized Checkout → Guard (Executed | Denied) → Credential / Freeze / Close. Details: [`docs/AGENTIC_COMMERCE.md`](docs/AGENTIC_COMMERCE.md) · 90s path: [`JUDGE.md`](JUDGE.md) · [`DEMO_SCRIPT.md`](DEMO_SCRIPT.md).
-
-## Why it matters
-
-Agents that can pay are useful only if spending is **bounded and auditable**. Prompts and “please don’t overspend” are not a control plane: a compromised or confused model will still try. KillSwitch puts the control plane on-chain — **Session Key + Guard** — so merchants and users share the same evidence: who was allowed to pay, under what rules, and whether the chain executed or denied.
-
-**One-liner for pitches:** Agentic Commerce that is safe enough to ship — the model proposes, the contract Guards; next step is real merchant settlement and AA session keys, not another chatbot that can drain a wallet.
-
-## Commercialization & productization
-
-Not a full business plan — direction after the demo loop is proven:
-
-| Horizon | What we sell / ship | KillSwitch today |
-|---------|---------------------|------------------|
-| **Now (control layer)** | Session-bounded agent checkout for teams that already want LLM agents to pay APIs, SaaS, or IRL merchants | Grant → Propose → `Executed` / `PaymentDenied` → Freeze / Close + `CommercePaymentCredential` |
-| **Next (merchant product)** | Allowlist onboarding, quote/SKU catalog, settlement proof merchants can verify without trusting the agent UI | Console commerce funnel + credential; Shadow Shop deny path |
-| **Later (wallet / AA)** | Policy templates, monitoring, and ERC-4337 / Smart Session modules so the same rules ride production account abstraction | [`docs/AA_SESSION_KEY.md`](docs/AA_SESSION_KEY.md) roadmap (`ISessionCapability`) |
-
-**Who pays:** end users (safe delegation), agent platforms (compliance-ready spend rails), and merchants (verifiable machine payment without card-PAN exposure in the agent).
-
-**What we will not productize as the moat:** a bigger LLM prompt. The moat is **machine-checkable policy + deny-as-success evidence**.
-
-## Cypherpunk Design Principles
-
-1. **Agent proposes; policy contract disposes** — Stopping/deny is a correct recorded outcome
-2. **Least privilege** — Session capability with budget, merchant allowlist, deadline
-3. **Don't trust the model** — Enforce boundaries in code + on-chain, not in prompts
-4. **Evidence** — Another person with only your records can reconstruct authorization (credential + events)
-
-## Alignment with AI × Web3 Handbook
-
-KillSwitch is built as an **Agentic Commerce** scenario aligned with the AI × Web3 School Handbook's **Wallet / Permission** and **Agent Wallet** tracks — using the same vocabulary: Session Key, Policy, Guard, and HITL.
-
-| Handbook concept | KillSwitch implementation | Demo proof |
-|---|---|---|
-| **Agent Wallet** | Agent never holds the user master key; only proposes under a session | Console Agent panel |
-| **Session Key** | `SessionPolicy`: budget + merchant allowlist + deadline | Grant session |
-| **Policy (machine-checkable)** | On-chain checks (`amount + 2% fee`, allowlist, deadline, frozen) | `forge test` + Anvil |
-| **Guard** | Over-budget / off-allowlist → `PaymentDenied` (**deny = success**) | `demos/agent-boundary.mjs`, console buttons |
-| **Human-in-the-loop** | Owner `freeze()` / Kill — model cannot override | Console Freeze |
-| **Verifiable records** | `PaymentProposed` / `Executed` / `Denied` events | Chain receipts panel |
-| **Account Abstraction** | SessionPolicy is a minimal, demoable subset of Smart Account session modules | `ARCHITECTURE.md` |
-
-**Positioning:** **Agentic Commerce (core scenario)** · Wallet & Permission (mechanism) · AI Security (Guard / deny = success).
-
-**Canonical demo contrast:**
-1. In-limit checkout (Coffee Lane) → `PaymentExecuted` + paid credential
-2. Over-limit → policy reject
-3. Off-catalog / Shadow Shop → Guard intercept (`PaymentDenied`)
-4. User Freeze / Close → Agent loses capability / refund
-
-**Deep dive:** [`docs/AGENTIC_COMMERCE.md`](docs/AGENTIC_COMMERCE.md).
-
-**Production evolution:** [`docs/AA_SESSION_KEY.md`](docs/AA_SESSION_KEY.md) maps `ISessionCapability` → ERC-4337 Session Key.
-
-## Arbitrum Open House Buildathon
-
-**Qualification path:** deploy `SessionPolicy` on **Arbitrum Sepolia** (`chainId` `421614`) and show Arbiscan links for `PaymentExecuted` + `PaymentDenied`.
-
-| Step | Command / doc |
-|------|----------------|
-| Config | Copy `.env.example` → `.env` (see table in [`docs/ARBITRUM_BUILDATHON.md`](docs/ARBITRUM_BUILDATHON.md)) |
-| Deploy | `./scripts/deploy-arbitrum-sepolia.sh` or `RPC_URL=<arb-sepolia> ./demos/setup.sh` |
-| Check | `./scripts/check-arbitrum-path.sh` → `ARB_PATH_OK` |
-| Pitch / USDG | [`docs/ARBITRUM_BUILDATHON.md`](docs/ARBITRUM_BUILDATHON.md) · [`docs/USDG_ROADMAP.md`](docs/USDG_ROADMAP.md) |
-
-**Live on Arbitrum Sepolia** (`chainId` `421614`):
+## Live on Arbitrum Sepolia (`chainId` `421614`)
 
 | | |
 |--|--|
@@ -100,304 +30,109 @@ KillSwitch is built as an **Agentic Commerce** scenario aligned with the AI × W
 | `PaymentDenied` (merchant) | [`0x9d33…c88c`](https://sepolia.arbiscan.io/tx/0x9d33cfb55b08d9ce6fcf4dd4cf7f71105d13726a679b232a9c9ec4771188c88c) |
 | Session grant | [`0x8c5b…8a49`](https://sepolia.arbiscan.io/tx/0x8c5b646a43b8a83c2dfabe4b29d706aeda06b3f51ce45bf3cb4143687f658a49) |
 
-## Deploy (Vercel)
+Submission media: [`docs/submission/`](docs/submission/) · Pitch notes: [`docs/ARBITRUM_BUILDATHON.md`](docs/ARBITRUM_BUILDATHON.md) · Optional USDG path: [`docs/USDG_ROADMAP.md`](docs/USDG_ROADMAP.md)
 
-Production console deploys from GitHub `main` via the linked Vercel project (`killswitch-wallet`) and/or `.github/workflows/deploy-vercel.yml`.
+## Demo contrast (what judges should see)
 
-**Required Vercel environment variables**
-
-| Variable | Purpose |
-|----------|---------|
-| `RPC_URL` | **Arbitrum Sepolia** JSON-RPC (not `127.0.0.1` Anvil) |
-| `OWNER_PRIVATE_KEY` / `AGENT_PRIVATE_KEY` | Funded throwaways (`PRIVATE_KEY` = agent alias) |
-| `CONTRACT_ADDRESS` | Deployed `SessionPolicy` on Arbitrum |
-| `CONTRACT_DEPLOY_BLOCK` | Deploy block (public RPC log scans) |
-| `CHAIN_LABEL` | `arbitrum-sepolia` |
-| `LLM_PROVIDER` | Optional `kiln` / `kimi` (missing key → mock) |
-| `KILN_API_KEY` / `KIMI_API_KEY` | Matching provider key |
-
-**CI secrets** (for the GitHub Actions deploy workflow): `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`.
-
-**Local console:** `npm run vercel-build && npm run console` → http://127.0.0.1:8787
+1. In-limit checkout → `PaymentExecuted` + credential (Arbiscan link)
+2. Over-budget (amount + 2% fee) → `PaymentDenied`
+3. Off-allowlist / Shadow Shop → `PaymentDenied`
+4. User Freeze / Close → agent loses capability / refund
 
 ## Architecture
 
 ```mermaid
 graph TB
-    User[User] -->|1. Grant Session| Contract[SessionPolicy Contract]
+    User[User] -->|1. Grant Session| Contract[SessionPolicy on Arbitrum]
     Contract -->|Budget, Allowlist, Deadline| Session[Active Session]
-    
     Agent[AI Agent] -->|2. Propose Payment| Session
     Session -->|3. Check Policy| Contract
-    
-    Contract -->|✓ Allowed| Payment[Execute Payment]
-    Contract -->|✗ Denied| Deny[Record Denial]
-    
-    Payment -->|Emit Event| Blockchain[On-Chain Receipt]
-    Deny -->|Emit Event| Blockchain
-    
-    User -->|Monitor/Freeze| Contract
-    Blockchain -->|Audit Trail| Evidence[Reconstructable Evidence]
+    Contract -->|Allowed| Payment[Execute Payment]
+    Contract -->|Denied| Deny[Record Denial]
+    Payment -->|Event| Chain[Arbitrum receipt]
+    Deny -->|Event| Chain
+    User -->|Freeze / Close| Contract
 ```
 
-## What the Agent Does vs What Code Enforces
+| Capability | Agent | Contract |
+|------------|-------|----------|
+| Read policy | ✓ | on-chain state |
+| Propose payment | ✓ | ✗ cannot bypass |
+| Allowlist / budget / deadline | advisory only | **enforced** |
+| Record outcome | ✗ | **events** |
+| Emergency stop | ✗ | **owner `freeze()`** |
 
-| Capability | Agent | Smart Contract / Code |
-|------------|-------|------------------------|
-| **Read Policy** | ✓ Can query current budget/allowlist | N/A |
-| **Propose Payment** | ✓ Suggests merchant & amount | ✗ Cannot execute directly |
-| **Check Allowlist** | ✗ Advisory only, not enforced | ✓ **Enforced on-chain** |
-| **Check Budget** | ✗ Advisory only, not enforced | ✓ **Enforced on-chain** |
-| **Check Deadline** | ✗ Advisory only, not enforced | ✓ **Enforced on-chain** |
-| **Record Outcome** | ✗ Cannot forge | ✓ **Immutable event logs** |
-| **Emergency Stop** | ✗ Cannot override | ✓ **Owner freeze()** |
-
-## Project Structure
-
-```
-killswitch-wallet/
-├── contracts/           # Foundry smart contracts
-│   ├── src/
-│   │   ├── SessionPolicy.sol       # Core policy enforcement
-│   │   └── KillSwitchVault.sol     # Payment execution
-│   ├── test/
-│   └── script/          # Deployment scripts
-├── agent/               # TypeScript AI agent
-│   ├── src/
-│   │   ├── kiln-client.ts          # Kiln API integration
-│   │   ├── policy-reader.ts        # On-chain policy queries
-│   │   └── payment-proposer.ts     # Agent payment logic
-│   └── package.json
-├── demos/               # Demonstration scripts
-│   ├── 01-success-payment.sh
-│   ├── 02-budget-exceeded.sh
-│   └── 03-merchant-denied.sh
-└── README.md
-```
-
-## Setup Instructions
-
-### Prerequisites
-
-- **Node.js** 18+ and pnpm
-- **Foundry** (forge, anvil, cast)
-- Optional **Kiln API Key** (for `gpt-oss-120b`); local/demo mode can use Kimi or a mock client
-
-### 1. Install Dependencies
-
-```bash
-# Install Foundry (if not already installed)
-curl -L https://foundry.paradigm.xyz | bash
-foundryup
-
-# Install Node dependencies
-cd agent
-pnpm install
-```
-
-### 2. Configure Environment
-
-```bash
-# Copy environment template
-cp .env.example .env
-
-# Edit .env and choose a provider
-# LLM_PROVIDER=kiln
-# KILN_MODEL=gpt-oss-120b
-# KILN_API_KEY=your_key_here
-# Or: LLM_PROVIDER=kimi
-```
-
-### 3. Start Local Blockchain
-
-```bash
-# Terminal 1: Start Anvil local testnet
-anvil
-```
-
-### 4. Deploy Contracts
-
-```bash
-# Terminal 2: Deploy to local testnet
-cd contracts
-forge build
-forge script script/Deploy.s.sol --rpc-url http://127.0.0.1:8545 --broadcast
-```
-
-### 5. Run Demonstrations
-
-```bash
-# Terminal 2: Run demo scenarios
-cd demos
-
-# Success case: payment within budget and allowlist
-./01-success-payment.sh
-
-# Boundary case: budget exceeded
-./02-budget-exceeded.sh
-
-# Boundary case: merchant not on allowlist
-./03-merchant-denied.sh
-```
-
-## Acceptance Criteria Demonstrated
-
-### 1. ✓ Declared Function
-README clearly states what the agent does vs what code enforces (see table above).
-
-### 2. ✓ Boundaries & Stopping
-Two forced out-of-scope denial scenarios:
-- **Budget Exceeded**: `02-budget-exceeded.sh` — Agent proposes $150 payment, but budget is $100 (after fees). Contract denies and emits `PaymentDenied(reason: "Insufficient budget")`.
-- **Merchant Not Allowlisted**: `03-merchant-denied.sh` — Agent proposes payment to `0xBAD...`, but only `[0xMERCHANT1, 0xMERCHANT2]` are allowed. Contract denies and emits `PaymentDenied(reason: "Merchant not allowed")`.
-- **Deadline Expired**: (Optional) Contract checks `block.timestamp > deadline`.
-
-### 3. ✓ Optional LLM Integration
-- Agent can use `gpt-oss-120b` through the Kiln API
-- Token usage can be reported per flow
-- The mock client works without an API key
-- The model proposes; enforcement remains O(1) contract logic
-
-### 4. ✓ Blockchain On-Chain Transaction
-- Every demo run produces at least one on-chain transaction:
-  - `grantSession()`: Creates a session with policy parameters
-  - `proposeOrPay()`: Emits `PaymentExecuted` or `PaymentDenied`
-- Scripts print transaction hashes with matching log entries:
-  ```
-  ✓ Session created: 0x1234...
-  ✓ Payment proposed: 0x5678...
-    → Event: PaymentDenied(sessionId=1, reason="Budget exceeded")
-  ```
-
-### 5. ✓ Approval & Evidence
-- **Human grants budget**: `grantSession()` signed by owner
-- **Watch spend**: Query `spent` and `remaining` from contract
-- **Emergency stop**: Owner can call `freeze()` to halt session
-- **Receipt**: On-chain events provide a complete audit trail
-- **Reconstructability**: Anyone with contract address + RPC can rebuild full history:
-  ```bash
-  cast logs --address $CONTRACT --from-block 0 | jq
-  ```
-
-## NPU Efficiency Assumptions
-
-When using a hosted model provider, report measured latency, token usage, and energy data when available. Do not invent joules; if no meter is available, state the documented hardware assumptions or `UNKNOWN`.
-
-Agent design minimizes model calls:
-- Policy checks: pure on-chain reads (no LLM)
-- Payment proposal: single short JSON LLM call per user intent
-- No retry loops or self-correction via LLM
-
-## Development Roadmap
-
-- [ ] Multi-session support (parallel budgets)
-- [ ] Fiat on/off-ramp integration (Stripe → USDC)
-- [ ] ZK proofs for private merchant allowlists
-- [ ] Cross-chain settlement (L2 optimistic rollups)
-- [ ] Agent reputation/slashing for malicious proposals
-
-## License
-
-MIT
-
-## Project
-
-**KillSwitch Wallet** — open Agentic Commerce controls for AI agents.
-
-Demo: https://killswitch-wallet.vercel.app · Local: `./demos/demo-up.sh`
-
-**Built with**: Foundry, TypeScript, EVM (**Arbitrum Sepolia** / Anvil), optional Kiln or Kimi LLM
-
-## Local verification (Mac, 2026-09-20)
-
-Verified on Anvil without cloud agents:
-
-- `forge test`: **8 passed** (agent binding, deadline deny event, fee refund)
-- `./demos/setup.sh` requires Foundry **`--broadcast`** on `forge create`
-- Demos:
-  - `01-success-payment.sh` → `PaymentExecuted`, spent `5.1e16` wei for 0.05 ETH + 2% fee
-  - `02-budget-exceeded.sh` → `PaymentDenied` reason `Insufficient budget`, spent `0`
-  - `03-merchant-denied.sh` → `PaymentDenied` reason `Merchant not allowed`, spent `0`
-  - `04-freeze-session.sh` → `proposeOrPay` reverts with `SessionIsFrozen`
-- Agent mock mode works (`KILN_API_KEY` unset/placeholder): proposes then submits an on-chain transaction
-
-Quick path:
-
-```bash
-anvil --host 127.0.0.1 --port 8545 --block-time 1
-cp -n .env.example .env   # quote USER_INTENT
-./demos/setup.sh
-./demos/01-success-payment.sh
-./demos/02-budget-exceeded.sh
-./demos/03-merchant-denied.sh
-./demos/04-freeze-session.sh
-```
-
-## Acceptance mapping (demo checklist)
-
-| Criterion | Where it shows |
-|---|---|
-| Declared function & user need | This README § Declared Function |
-| Workflow user → outcome | `demos/` + `apps/console` |
-| Agent task vs code | Table above; contract enforces |
-| Boundaries & stopping (≥2 out-of-scope runs) | `02`/`03` cast demos + `demos/agent-boundary.mjs` (agent path) + `04-freeze-session` |
-| Kiln `gpt-oss-120b` | Optional via `LLM_PROVIDER=kiln`; local demos may use `LLM_PROVIDER=kimi`. Mock without key. |
-| On-chain tx + hash | Every demo prints tx hash; events `PaymentExecuted` / `PaymentDenied` |
-| Human approve / watch / stop / receipt | Console grant/freeze/events; `scripts/audit-session.sh` |
-| Third-party reconstructability | On-chain policy + event logs only |
-
-## Fee model (budget = amount + 2%)
-
-On-chain in `SessionPolicy.proposeOrPay`:
+## Fee model
 
 ```solidity
 uint256 fee = (amount * 2) / 100;  // 2%
 uint256 totalCost = amount + fee;  // charged against session budget
 ```
 
-Agent helper `feeWei(amount)` / `totalCostWei(amount)` in `agent/src/fees.ts` keeps receipts and UI aligned with the contract.
+Helpers in `agent/src/fees.ts` stay in sync with the contract.
 
-## LLM providers (dual path)
+## Keys
 
-| Context | Provider | Model / env |
-|---------|----------|-------------|
-| Hosted path | Kiln API | `LLM_PROVIDER=kiln`, `KILN_MODEL=gpt-oss-120b` |
-| Local build / demos | Kimi (Moonshot) | `LLM_PROVIDER=kimi`, `KIMI_MODEL=…` |
-
-Never commit real API keys. See [KILN_SETUP.md](KILN_SETUP.md) and `.env.example`.
-
-### Owner vs agent keys
-
-| Role | Env var | Signs |
-|------|---------|-------|
+| Role | Env | Signs |
+|------|-----|-------|
 | Owner | `OWNER_PRIVATE_KEY` | `grantSession`, `freeze`, `closeSession` |
-| Agent | `AGENT_PRIVATE_KEY` (alias: `PRIVATE_KEY`) | `proposeOrPay` |
+| Agent | `AGENT_PRIVATE_KEY` (alias `PRIVATE_KEY`) | `proposeOrPay` |
 
-## Trust boundary
-
-Agent proposes → Contract disposes → Evidence on-chain. **PaymentDenied is a success outcome** (boundary held). Deeper narrative: [ARCHITECTURE.md](ARCHITECTURE.md).
-
-## One-click demo
+## Quick start (Arbitrum Sepolia)
 
 ```bash
-./demos/demo-up.sh          # anvil (if needed) → setup → agent build → console
-./demos/run-all.sh          # cast demos 01–04
-node demos/agent-boundary.mjs all   # TS agent path: over-budget + off-allowlist
-```
+cp .env.example .env
+# Set RPC_URL + ARB_SEPOLIA_RPC_URL to Arbitrum Sepolia
+# Fund OWNER_PRIVATE_KEY and AGENT_PRIVATE_KEY
 
-## Web console
+./scripts/deploy-arbitrum-sepolia.sh
+# or: ./demos/setup.sh
 
-```bash
-./demos/demo-up.sh
-# or: node apps/console/server.mjs
+./scripts/check-arbitrum-path.sh   # expect ARB_PATH_OK
+./demos/01-success-payment.sh
+./demos/02-budget-exceeded.sh
+./demos/03-merchant-denied.sh
+
+npm run assemble-console && npm run console
 # http://127.0.0.1:8787
 ```
 
-Cyber/ops UI: Policy / Agent / Chain panels, fee-aware receipts, boundary demo buttons, live Watch.
+Local Anvil still works for development (`RPC_URL=http://127.0.0.1:8545` + `./demos/demo-up.sh`).
 
-## Gas / Foundry
+### Vercel console env
+
+| Variable | Purpose |
+|----------|---------|
+| `RPC_URL` | Arbitrum Sepolia JSON-RPC |
+| `OWNER_PRIVATE_KEY` / `AGENT_PRIVATE_KEY` | Funded throwaways |
+| `CONTRACT_ADDRESS` | Deployed `SessionPolicy` |
+| `CONTRACT_DEPLOY_BLOCK` | Deploy block for log scans |
+| `CHAIN_LABEL` | `arbitrum-sepolia` |
+| `LLM_PROVIDER` + API key | Optional (`kimi` / `kiln`; missing → mock) |
+
+## Project structure
+
+```
+killswitch-wallet/
+├── contracts/           # SessionPolicy (Foundry)
+├── agent/               # Propose via LLM; submit to contract
+├── apps/console/        # Judge UI + commerce funnel
+├── demos/               # Cast + agent boundary demos
+├── scripts/             # deploy/check Arbitrum path
+├── docs/                # ARBITRUM_BUILDATHON, AA roadmap, submission media
+└── README.md
+```
+
+## Tests & trust boundary
 
 ```bash
-cd contracts && forge test          # expect 8 passed
-# Optional local gas snapshot (commit .gas-snapshot only if you generate it):
-# forge snapshot
+cd contracts && forge test   # expect 8 passed
 ```
+
+Agent proposes → contract disposes → evidence on Arbitrum. **`PaymentDenied` is a success outcome.**
+
+Roadmap (AA / Smart Sessions): [`docs/AA_SESSION_KEY.md`](docs/AA_SESSION_KEY.md).
+
+## License
+
+MIT
