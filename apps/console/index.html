@@ -1282,7 +1282,7 @@
       <h2>Agent 智能体 <span class="hint">propose · boundary demos</span></h2>
       <p class="panel-caption">你在看什么：<strong>Web3 Tool Use</strong>——模型只能 propose；执行/拒绝由合约 Guard。下方双栏对比「模型说了什么 / 合约判了什么」。</p>
       <label>User intent 意图</label>
-      <textarea id="intent">Buy coffee for 0.03 ETH</textarea>
+      <textarea id="intent">Buy coffee for 0.5 USDG</textarea>
       <div class="actions">
         <button id="btnPropose">Propose</button>
         <button class="ghost" id="btnLoadReceipts">Load receipts</button>
@@ -1344,10 +1344,7 @@
       if (!box) return;
       try {
         const h = await api('/api/health').then(h => {
-          if (h?.demoAmounts) {
-            window.__demoAmounts = h.demoAmounts;
-            if ($('budget') && h.demoAmounts.local === false) $('budget').value = h.demoAmounts.autoGrant;
-          }
+          if (h?.demoAmounts) applyDemoAmounts(h.demoAmounts);
           if (h?.demoMerchants && $('merchants')) {
             const m = h.demoMerchants;
             $('merchants').value = [m.coffee, m.api].filter(Boolean).join(',');
@@ -1361,7 +1358,7 @@
           rpcOk: h.rpcOk,
           note: 'Arbitrum Buildathon: chainId 421614, Executed + Denied on Arbiscan. LLM optional.',
           aa: 'docs/AA_SESSION_KEY.md — ZeroDev next; ISessionCapability is the rule surface.',
-          usdg: 'docs/USDG_ROADMAP.md — Circle USDC 0x75faf114…AA4d stand-in.',
+          usdg: h.settlement || 'docs/USDG_ROADMAP.md — grantSessionToken USDG/USDC',
           vercel: h.vercelHint,
           demoMerchants: h.demoMerchants,
           check: 'scripts/check-arbitrum-path.sh · scripts/verify-arbitrum-sepolia.sh',
@@ -1973,10 +1970,30 @@
       }
     }
 
+    function settlementUnit() {
+      return (window.__lastPolicy && window.__lastPolicy.symbol)
+        || (window.__demoAmounts && window.__demoAmounts.unit)
+        || 'ETH';
+    }
+
+    function applyDemoAmounts(amts) {
+      if (!amts) return;
+      window.__demoAmounts = amts;
+      if ($('budget') && amts.autoGrant) $('budget').value = amts.autoGrant;
+      if ($('intent') && amts.autoProposeIntent) {
+        const cur = $('intent').value || '';
+        if (!cur || /ETH/i.test(cur) || /^Buy coffee/i.test(cur)) {
+          $('intent').value = amts.autoProposeIntent;
+        }
+      }
+    }
+
     function fmtEth(v) {
       const n = Number(v);
-      if (!Number.isFinite(n)) return v;
-      return n.toFixed(6).replace(/\.?0+$/, '') + ' ETH';
+      const unit = settlementUnit();
+      if (!Number.isFinite(n)) return `${v} ${unit}`;
+      const d = unit === 'ETH' ? 6 : 4;
+      return n.toFixed(d).replace(/\.?0+$/, '') + ' ' + unit;
     }
 
     function renderPolicy(data) {
@@ -2084,7 +2101,7 @@
       try {
         const h = await api('/api/health');
         if (h?.demoMerchants) window.__demoMerchants = h.demoMerchants;
-        if (h?.demoAmounts) window.__demoAmounts = h.demoAmounts;
+        if (h?.demoAmounts) applyDemoAmounts(h.demoAmounts);
         const led = $('led');
         led.className = 'led ' + (h.ok ? 'ok' : 'bad');
         const parts = [
